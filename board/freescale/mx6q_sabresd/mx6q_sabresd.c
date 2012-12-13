@@ -274,6 +274,40 @@ int setup_sata(void)
 }
 #endif
 
+#if defined(CONFIG_ENET_RMII) && !defined(CONFIG_DWC_AHSATA)
+#define ANATOP_PLL_LOCK                 0x80000000
+#define ANATOP_PLL_PWDN_MASK            0x00001000
+#define ANATOP_PLL_BYPASS_MASK          0x00010000
+#define ANATOP_FEC_PLL_ENABLE_MASK      0x00002000
+
+static int setup_fec(void)
+{
+	u32 reg = 0;
+	s32 timeout = 100000;
+
+	/* Enable PLLs */
+	reg = readl(ANATOP_BASE_ADDR + 0xe0); /* ENET PLL */
+	if ((reg & ANATOP_PLL_PWDN_MASK) || (!(reg & ANATOP_PLL_LOCK))) {
+		reg &= ~ANATOP_PLL_PWDN_MASK;
+		writel(reg, ANATOP_BASE_ADDR + 0xe0);
+		while (timeout--) {
+			if (readl(ANATOP_BASE_ADDR + 0xe0) & ANATOP_PLL_LOCK)
+				break;
+			}
+			if (timeout <= 0)
+				return -1;
+	}
+
+	/* Enable FEC clock */
+	reg |= ANATOP_FEC_PLL_ENABLE_MASK;
+	reg &= ~ANATOP_PLL_BYPASS_MASK;
+	writel(reg, ANATOP_BASE_ADDR + 0xe0);
+
+	return 0;
+}
+#endif
+
+
 int dram_init(void)
 {
 	/*
@@ -1550,6 +1584,9 @@ int board_init(void)
 #ifdef CONFIG_NAND_GPMI
 	setup_gpmi_nand();
 #endif
+#if defined(CONFIG_ENET_RMII) && !defined(CONFIG_DWC_AHSATA)
+	setup_fec();
+#endif
 
 #ifdef CONFIG_MXC_EPDC
 	setup_epdc();
@@ -1654,6 +1691,40 @@ iomux_v3_cfg_t enet_pads[] = {
 	MX6Q_PAD_RGMII_RX_CTL__ENET_RGMII_RX_CTL,
 	MX6Q_PAD_GPIO_0__CCM_CLKO,
 	MX6Q_PAD_GPIO_3__CCM_CLKO2,
+
+	/* For RMII pad set
+	 * In RMII mode, FEC MAC and phy need the same clock
+	 * source to sync the clock phase.
+	 *
+	 * And in ARIK ARM2 cpu board,the pin GPIO_16 and RGMII_TX_CTL
+	 * can config to input/output clock for phy and MAC.
+	 *
+	 * But, GPIO_16 connect many i2c3_SDA device branch, even if
+	 * don't connect the i2c devices, the layout lines influence
+	 * on the clock signal, the clock jitter is very serious, phy
+	 * cannot recongnize the clock.
+	 *
+	 * So, select RGMII_TX_CTL pin as clock output for phy, and loopback
+	 * for FEC MAC. And RGMII mode cannot be used in the same.
+	 */
+#ifdef CONFIG_ENET_RMII
+	MX6Q_PAD_ENET_MDIO__ENET_MDIO,
+	MX6Q_PAD_ENET_MDC__ENET_MDC,
+	MX6Q_PAD_ENET_RXD0__ENET_RDATA_0,
+	MX6Q_PAD_ENET_RXD1__ENET_RDATA_1,
+	MX6Q_PAD_ENET_CRS_DV__ENET_RX_EN,
+	MX6Q_PAD_ENET_TXD0__ENET_TDATA_0,
+	MX6Q_PAD_ENET_TXD1__ENET_TDATA_1,
+	MX6Q_PAD_ENET_TX_EN__ENET_TX_EN,
+	MX6Q_PAD_GPIO_16__ENET_ANATOP_ETHERNET_REF_OUT,
+	MX6Q_PAD_EIM_EB1__GPIO_2_29, /* reset phy */
+	/*
+	 * Since FEC_RX_ER is not connected with PHY(LAN8720A),
+	 * configure FEC_RX_ER PAD to GPIO mode with pull down,
+	 * which can avoid FEC MAC to report CRC error.
+	 */
+	MX6Q_PAD_ENET_RX_ER__GPIO_1_24,
+#endif	
 };
 #elif defined CONFIG_MX6DL
 iomux_v3_cfg_t enet_pads[] = {
@@ -1681,7 +1752,12 @@ void enet_board_init(void)
 	unsigned int reg;
 #if defined CONFIG_MX6Q
 	iomux_v3_cfg_t enet_reset =
-			(_MX6Q_PAD_ENET_CRS_DV__GPIO_1_25 &
+			(_MX6Q_PAD_EIM_EB1__GPIO_2_29 &
+			~MUX_PAD_CTRL_MASK)           |
+			 MUX_PAD_CTRL(0x88);
+
+	iomux_v3_cfg_t enet_addr =
+			(_MX6Q_PAD_ENET_RX_ER__GPIO_1_24 &
 			~MUX_PAD_CTRL_MASK)           |
 			 MUX_PAD_CTRL(0x88);
 #elif defined CONFIG_MX6DL
@@ -1694,21 +1770,44 @@ void enet_board_init(void)
 	mxc_iomux_v3_setup_multiple_pads(enet_pads,
 			ARRAY_SIZE(enet_pads));
 	mxc_iomux_v3_setup_pad(enet_reset);
-
-	/* phy reset: gpio1-25 */
+	mxc_iomux_v3_setup_pad(enet_addr);
+	/* phy address = 0 */
 	reg = readl(GPIO1_BASE_ADDR + 0x0);
-	reg &= ~0x2000000;
+	reg &= ~0x1000000;
 	writel(reg, GPIO1_BASE_ADDR + 0x0);
 
 	reg = readl(GPIO1_BASE_ADDR + 0x4);
-	reg |= 0x2000000;
+	reg |= 0x1000000;
 	writel(reg, GPIO1_BASE_ADDR + 0x4);
 
+	udelay(500);	
+	
+	/* phy reset: gpio2-29 */
+	reg = readl(GPIO2_BASE_ADDR + 0x0);
+	reg &= ~0x20000000;
+	writel(reg, GPIO2_BASE_ADDR + 0x0);
+
+	reg = readl(GPIO2_BASE_ADDR + 0x4);
+	reg |= 0x20000000;
+	writel(reg, GPIO2_BASE_ADDR + 0x4);
 	udelay(500);
 
-	reg = readl(GPIO1_BASE_ADDR + 0x0);
-	reg |= 0x2000000;
-	writel(reg, GPIO1_BASE_ADDR + 0x0);
+	reg = readl(GPIO2_BASE_ADDR + 0x0);
+	reg |= 0x20000000;
+	writel(reg, GPIO2_BASE_ADDR + 0x0);
+
+#ifdef CONFIG_ENET_RMII
+	/* Set GPIO_16 output for RMII reference clock
+	 * For MX6 GPR1 bit21 meaning:
+	 * Bit21:       1 - GPIO_16 pad output
+	 *              0 - GPIO_16 pad input
+	 * Use interal clock, set GPIO_16 output, and
+	 * then force input(set SION)
+	 * Use exteral clock, set GPIO_16 input, and
+	 * don't set SION bit.
+	 */
+	mxc_iomux_set_gpr_register(1, 21, 1, 1);
+#endif
 }
 #endif
 

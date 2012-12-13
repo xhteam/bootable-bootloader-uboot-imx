@@ -324,6 +324,17 @@
 #else
 	#define CONFIG_ENV_IS_NOWHERE	1
 #endif
+#define CONFIG_MXC_GPIO
+#define CONFIG_ENET_RMII
+/*
+ * RGMII use phy AR8031, RMII use phy Lan8720
+ * AR8031 phy address is 0, Lan8720 phy address is 1.
+ */
+#ifdef CONFIG_ENET_RMII
+	#define CONFIG_FEC0_PHY_ADDR		0
+#else
+	#define CONFIG_FEC0_PHY_ADDR            1
+#endif		
 
 #define CONFIG_SPLASH_SCREEN
 #ifdef CONFIG_SPLASH_SCREEN

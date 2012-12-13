@@ -76,7 +76,8 @@
 #define FEC_MII_WRITE(pa, ra, v) (FEC_MII_FRAME | FEC_MII_OP(FEC_MII_OP_WR)|\
 			FEC_MII_PA(pa) | FEC_MII_RA(ra) | FEC_MII_SET_DATA(v))
 
-#if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
+#if (defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)) && \
+		!defined(CONFIG_ENET_RMII)
 extern int mx6_rgmii_rework(char *devname, int phy_addr);
 #endif
 
@@ -932,8 +933,14 @@ int fec_init(struct eth_device *dev, bd_t *bd)
 	fecp->emrbr = PKT_MAXBLR_SIZE;
 
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
-	fecp->rcr &= ~(0x100);
-	fecp->rcr |= 0x44;
+#define ENET_RMII_MODE	(FEC_RCR_RMII_MODE | FEC_RCR_MII_MODE)
+#define ENET_RGMII_MODE	(FEC_RCR_RGMII_ENA | FEC_RCR_MII_MODE)
+#ifdef CONFIG_ENET_RMII
+	fecp->rcr |= ENET_RMII_MODE;
+#else
+	fecp->rcr &= ~FEC_RCR_RMII_MODE;
+	fecp->rcr |= ENET_RGMII_MODE;
+#endif
 #endif
 	/*
 	 * Setup Buffers and Buffer Desriptors
