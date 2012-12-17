@@ -75,6 +75,6 @@
 		"bootcmd=booti mmc3\0"					\
 		"splashimage=0x30000000\0"				\
 		"splashpos=m,m\0"					\
-		"lvds_num=1\0"						\
+		"lvds_num=0\0"						\
 		"bootargs=console=ttymxc0,115200 init=/init video=mxcfb0:dev=lcd,1280x720M@60,if=RGB24,bpp=32 video=mxcfb1:dev=hdmi,1920x1080M@60 vmalloc=400M fbmem=28M,28M"
 #endif

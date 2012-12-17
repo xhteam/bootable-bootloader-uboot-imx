@@ -1391,6 +1391,39 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 
 #ifndef CONFIG_MXC_EPDC
 #ifdef CONFIG_LCD
+iomux_v3_cfg_t lcd_pads[] = {
+	MX6Q_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
+	MX6Q_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
+	MX6Q_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
+	MX6Q_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
+	MX6Q_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
+	MX6Q_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
+	MX6Q_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
+	MX6Q_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
+	MX6Q_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
+	MX6Q_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
+	MX6Q_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
+	MX6Q_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
+	MX6Q_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
+	MX6Q_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
+	MX6Q_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
+	MX6Q_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
+	MX6Q_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
+	MX6Q_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
+	MX6Q_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
+	MX6Q_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
+	MX6Q_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
+	MX6Q_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
+	MX6Q_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
+	MX6Q_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
+	MX6Q_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
+	MX6Q_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
+	MX6Q_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
+	MX6Q_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
+	MX6Q_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
+	MX6Q_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
+	MX6Q_PAD_GPIO_9__GPIO_1_9,
+};
 void lcd_enable(void)
 {
 	char *s;
@@ -1422,6 +1455,7 @@ void lcd_enable(void)
 	/* LVDS panel CABC_EN1 */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
+	mxc_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
 
 	/* Set GPIO backlight to high. */
 	reg = readl(GPIO1_BASE_ADDR + GPIO_GDIR);
@@ -1470,7 +1504,7 @@ void lcd_enable(void)
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	}
 
-	ret = ipuv3_fb_init(&lvds_xga, di, IPU_PIX_FMT_RGB666,
+	ret = ipuv3_fb_init(&lvds_xga, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_LDB, 65000000);
 	if (ret)
 		puts("LCD cannot be configured\n");
@@ -1765,6 +1799,10 @@ void enet_board_init(void)
 			(MX6DL_PAD_ENET_CRS_DV__GPIO_1_25 &
 			~MUX_PAD_CTRL_MASK)           |
 			 MUX_PAD_CTRL(0x88);
+        iomux_v3_cfg_t enet_addr =
+                        (_MX6Q_PAD_ENET_RX_ER__GPIO_1_24 &
+                        ~MUX_PAD_CTRL_MASK)           |
+                         MUX_PAD_CTRL(0x88);
 #endif
 
 	mxc_iomux_v3_setup_multiple_pads(enet_pads,
