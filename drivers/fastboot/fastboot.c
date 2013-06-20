@@ -53,10 +53,17 @@
  * SYSTEM partition - /dev/mmcblk0p2  or /dev/sda2
  * RECOVERY parittion - dev/mmcblk0p4 or /dev/sda4
  */
+/*
+  *Quester comment,FSL IVT is fetched in fixed address for SD/MMC/eMMC/eSD/SDXC(0x200 offset).
+  * Bootloader contains IVT but bootloader image generated add 1K bytes padding,For simlicity,we check
+  * the header if start in IVT format. So Change ANDROID_BOOTLOADER_OFFSET to 0 and 
+  * ANDROID_BOOTLOADER_SIZE to 0x100000 (1MB)
+  *
+*/
 #define ANDROID_MBR_OFFSET	    0
 #define ANDROID_MBR_SIZE	    0x200
-#define ANDROID_BOOTLOADER_OFFSET   0x400
-#define ANDROID_BOOTLOADER_SIZE	    0xFFC00
+#define ANDROID_BOOTLOADER_OFFSET   0/*0x400 */
+#define ANDROID_BOOTLOADER_SIZE	    0x100000 /*0xFFC00*/
 #define ANDROID_KERNEL_OFFSET	    0x100000
 #define ANDROID_KERNEL_SIZE	    0x500000
 #define ANDROID_URAMDISK_OFFSET	    0x600000
@@ -395,7 +402,8 @@ static int fastboot_init_mmc_sata_ptable(void)
 				   "system", dev_desc, ptable);
 
 	for (i = 0; i <= PTN_RECOVERY_INDEX; i++)
-		fastboot_flash_add_ptn(&ptable[i]);
+		if(strlen(ptable[i].name))
+			fastboot_flash_add_ptn(&ptable[i]);
 
 	return 0;
 }

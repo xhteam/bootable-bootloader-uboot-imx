@@ -263,6 +263,12 @@ static void save_block_values(struct fastboot_ptentry *ptn,
 /* will do later */
 #endif
 
+static int board_oem(const char* args)
+{
+	int ret=run_command(args,0);
+	return (ret>=0)?0:-1;
+}
+
 static void reset_handler ()
 {
 	/* If there was a download going on, bail */
@@ -732,6 +738,35 @@ static int tx_handler(void)
 	return upload_error;
 }
 
+//apply bootloader patch for device dest
+//only apply for SD/MMC boot device
+static void patch_on_bootloader(char* source,char* dest,char *length){
+	unsigned char* source_buf=simple_strtoul(source, NULL, 16);
+	unsigned int dest_start = simple_strtoul(dest, NULL, 16);
+	int no_padding=0;
+	//dest normally pointer to dest device partition start sector
+	if(source_buf){
+		//check if there is padding of source image
+		if((source_buf[0]==0xD1)&&((source_buf[3]==0x40)||
+			(source_buf[3]==0x41)))
+			no_padding=1;
+	}
+	//we should change dest for padding or not
+	if(dest_start){
+		//should step on padding bytes
+		if(!no_padding){
+			sprintf(source,"0x%x",source_buf+0x400);
+		}
+	}else{
+		if(no_padding){
+			//jump over dest in 0x200
+			dest_start+=0x400/MMC_SATA_BLOCK_SIZE;//
+			sprintf(dest,"0x%x",dest_start);
+		}
+	}
+	//ignore length since it's calculated freely
+}
+
 static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 {
 	int ret = 1, temp_len = 0;
@@ -1185,6 +1220,10 @@ mmc_ops:
 						NULL, NULL, NULL};
 					char *mmc_dev[4] = {"mmc", "dev", NULL, NULL};
 
+					if(ptn->name&&!strcmp(ptn->name,"bootloader")){
+						printf("patch on bootloader through fastboot\n");
+						patch_on_bootloader(source,dest,length);
+					}
 					mmc_dev[2] = slot_no;
 					mmc_dev[3] = part_no;
 					mmc_write[2] = source;
@@ -1379,6 +1418,16 @@ mmc_ops:
 			}
 #endif
 			ret = 0;
+		}
+		if(memcmp(cmdbuf, "oem", 3) == 0) {
+			char *oem_command=cmdbuf+4;
+			printf("oemcommand:%s:\n", oem_command);
+			if(board_oem(oem_command))
+				sprintf(response, "FAILcommand execute with failure");
+			else
+				sprintf(response, "OKAY");
+			ret=0;
+
 		}
 
 		fastboot_tx_status(response, strlen(response));
