@@ -1925,4 +1925,15 @@ int fastboot_write_storage(u8 *partition_name, u32 write_len)
 #endif
 }
 
+static int do_fbpartinfo (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]){
+	fastboot_flash_dump_ptn();
+	return 0;
+}
+
+U_BOOT_CMD(
+	fbpartinfo,	2,	1,	do_fbpartinfo,
+	"fastboot- print fastboot partition information\n",
+	""
+);
+
 #endif	/* CONFIG_FASTBOOT */
