@@ -96,6 +96,11 @@ int get_env_id (void)
 /************************************************************************
  * Command interface: print one or all environment variables
  */
+static int do_env_default(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
+{
+    set_default_env();
+    return 0;
+}
 
 /*
  * state 0: finish printing this string and return (matched!)
@@ -608,6 +613,14 @@ int envmatch (uchar *s1, int i2)
 
 
 /**************************************************/
+U_BOOT_CMD(
+	resetenv, CONFIG_SYS_MAXARGS, 1,	do_env_default,
+	"resetenv- reset environment variables\n",
+	"\n    - reset environment table to default\n"
+	"resetenv ...\n"
+	"    - reset to default envs\n"
+);
+
 
 U_BOOT_CMD(
 	printenv, CONFIG_SYS_MAXARGS, 1,	do_printenv,
