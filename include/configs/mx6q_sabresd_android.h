@@ -73,7 +73,21 @@
 #define	CONFIG_EXTRA_ENV_SETTINGS					\
 		"netdev=eth0\0"						\
 		"ethprime=FEC0\0"					\
+		"bootargs=console=ttymxc0,115200 init=/init "		\
+		"video=video=mxcfb0:dev=lcd,bpp=32 " 			\
+		"video=mxcfb1:off " 					\
+		"video=mxcfb2:off " 					\
+		"fbmem=10M fb0base=0x27b00000 vmalloc=400M "		\
+		"androidboot.console=ttymxc0 "				\
+		"androidboot.hardware=freescale\0"			\
+		"fastboot_dev=mmc3\0"					\
+		"bootcmd_EMMC=booti mmc3\0"				\
+		"bootcmd_SD=mmc dev 2;" 				\
+		"mmc read ${loadaddr} 0x800 0x2800;"			\
+		"mmc read ${rd_loadaddr} 0x3000 0x300;"			\
+		"bootm ${loadaddr} ${rd_loadaddr}\0"			\
+		"bootcmd=run bootcmd_EMMC\0"				\
 		"splashimage=0x30000000\0"				\
 		"splashpos=m,m\0"					\
-		"lvds_num=1\0"
+		"lvds_num=0\0"
 #endif

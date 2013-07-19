@@ -87,6 +87,10 @@
 #include <ahci.h>
 #endif
 
+//add by allen
+#include <bmpmanager.h>
+//add by allen end
+
 DECLARE_GLOBAL_DATA_PTR;
 
 static enum boot_device boot_dev;
@@ -124,6 +128,13 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 
 static struct fb_videomode lvds_xga = {
 	 "XGA", 60, 1024, 768, 15385, 220, 40, 21, 7, 60, 10,
+	 FB_SYNC_EXT,
+	 FB_VMODE_NONINTERLACED,
+	 0,
+};
+
+static struct fb_videomode lvds_wvga = {
+	 "WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
 	 FB_SYNC_EXT,
 	 FB_VMODE_NONINTERLACED,
 	 0,
@@ -1411,6 +1422,77 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 
 #ifndef CONFIG_MXC_EPDC
 #ifdef CONFIG_LCD
+#if defined CONFIG_MX6Q
+iomux_v3_cfg_t lcd_pads[] = {
+	MX6Q_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
+	MX6Q_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
+	MX6Q_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
+	MX6Q_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
+	MX6Q_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
+	MX6Q_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
+	MX6Q_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
+	MX6Q_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
+	MX6Q_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
+	MX6Q_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
+	MX6Q_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
+	MX6Q_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
+	MX6Q_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
+	MX6Q_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
+	MX6Q_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
+	MX6Q_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
+	MX6Q_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
+	MX6Q_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
+	MX6Q_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
+	MX6Q_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
+	MX6Q_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
+	MX6Q_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
+	MX6Q_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
+	MX6Q_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
+	MX6Q_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
+	MX6Q_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
+	MX6Q_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
+	MX6Q_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
+	MX6Q_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
+	MX6Q_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
+	MX6Q_PAD_GPIO_9__GPIO_1_9,
+};
+#elif defined CONFIG_MX6DL
+iomux_v3_cfg_t lcd_pads[] = {
+	MX6DL_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
+	MX6DL_PAD_DI0_PIN15__IPU1_DI0_PIN15,
+	MX6DL_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
+	MX6DL_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
+	MX6DL_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
+	MX6DL_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
+	MX6DL_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
+	MX6DL_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
+	MX6DL_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
+	MX6DL_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
+	MX6DL_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
+	MX6DL_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
+	MX6DL_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
+	MX6DL_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
+	MX6DL_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
+	MX6DL_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
+	MX6DL_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
+	MX6DL_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
+	MX6DL_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
+	MX6DL_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
+	MX6DL_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
+	MX6DL_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
+	MX6DL_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
+	MX6DL_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
+	MX6DL_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
+	MX6DL_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
+	MX6DL_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
+	MX6DL_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
+	MX6DL_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
+	MX6DL_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
+	MX6DL_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
+	MX6DL_PAD_GPIO_9__GPIO_1_9,
+};
+#endif
+
 void lcd_enable(void)
 {
 	char *s;
@@ -1445,6 +1527,9 @@ void lcd_enable(void)
 	/* LVDS panel CABC_EN1 */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
+
+	mxc_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
+
 	/*
 	 * Set LVDS panel CABC_EN0 to low to disable
 	 * CABC function. This function will turn backlight
@@ -1646,7 +1731,7 @@ void lcd_enable(void)
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	}
 
-	ret = ipuv3_fb_init(&lvds_xga, di, IPU_PIX_FMT_RGB666,
+	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_LDB, 65000000);
 	if (ret)
 		puts("LCD cannot be configured\n");
@@ -1671,8 +1756,8 @@ void lcd_enable(void)
 void panel_info_init(void)
 {
 	panel_info.vl_bpix = LCD_BPP;
-	panel_info.vl_col = lvds_xga.xres;
-	panel_info.vl_row = lvds_xga.yres;
+	panel_info.vl_col = lvds_wvga.xres;
+	panel_info.vl_row = lvds_wvga.yres;
 	panel_info.cmap = colormap;
 }
 #endif
@@ -1680,8 +1765,18 @@ void panel_info_init(void)
 #ifdef CONFIG_SPLASH_SCREEN
 void setup_splash_image(void)
 {
+	
 	char *s;
 	ulong addr;
+	//add by allenyao 
+	unsigned long size;
+	unsigned long logo;
+	logo = 0x20000000;	
+	run_command("mmc dev 3",0);
+	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
+	size=size*512;
+	printf("the logo size is 0x%x\n",size);
+	//add by allenyao end
 
 	s = getenv("splashimage");
 
@@ -1692,8 +1787,10 @@ void setup_splash_image(void)
 		addr = ioremap_nocache(iomem_to_phys(addr),
 				fsl_bmp_reversed_600x400_size);
 #endif
-		memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
-				fsl_bmp_reversed_600x400_size);
+		//memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
+				//fsl_bmp_reversed_600x400_size);
+		memcpy((char *)addr, (char *)logo,
+				size);
 	}
 }
 #endif

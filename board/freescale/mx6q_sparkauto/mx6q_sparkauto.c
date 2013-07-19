@@ -35,6 +35,11 @@
 #include <miiphy.h>
 #endif
 
+//add by allen
+#include <bmpmanager.h>
+//add by allen end
+
+
 #if defined(CONFIG_VIDEO_MX5)
 #include <asm/imx_pwm.h>
 #include <linux/list.h>
@@ -100,6 +105,7 @@ extern int sata_curr_device;
 #ifdef CONFIG_VIDEO_MX5
 extern unsigned char fsl_bmp_reversed_600x400[];
 extern int fsl_bmp_reversed_600x400_size;
+
 extern int g_ipu_hw_rev;
 
 #if defined(CONFIG_BMP_8BPP)
@@ -1683,6 +1689,16 @@ void setup_splash_image(void)
 	char *s;
 	ulong addr;
 
+	//add by allenyao 
+	unsigned long size;
+	unsigned long logo;
+	logo = 0x20000000;		
+	run_command("mmc dev 3",0);
+	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
+	size=size*512;
+	printf("the logo size is 0x%x\n",size);
+	//add by allenyao end
+
 	s = getenv("splashimage");
 
 	if (s != NULL) {
@@ -1692,8 +1708,10 @@ void setup_splash_image(void)
 		addr = ioremap_nocache(iomem_to_phys(addr),
 				fsl_bmp_reversed_600x400_size);
 #endif
-		memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
-				fsl_bmp_reversed_600x400_size);
+			//memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
+					//fsl_bmp_reversed_600x400_size);
+	 memcpy((char *)addr, (char *)logo,size);
+	
 	}
 }
 #endif
