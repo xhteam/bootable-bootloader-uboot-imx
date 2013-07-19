@@ -62,6 +62,9 @@
 #include <fastboot.h>
 #include <environment.h>
 
+#include <bmpmanager.h>
+
+
 #ifdef CONFIG_FASTBOOT
 
 /* Use do_reset for fastboot's 'reboot' command */
@@ -772,6 +775,13 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 {
 	int ret = 1, temp_len = 0;
 
+	//move by allenyao
+	char source[32], dest[32];
+	char length[32], slot_no[32];
+	char part_no[32];
+	unsigned int temp;
+	//move by allenyao end
+
 	/* Use 65 instead of 64
 	   null gets dropped
 	   strcpy's need the extra byte */
@@ -1140,6 +1150,67 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 				/* Next is the partition name */
 				ptn = fastboot_flash_find_ptn(cmdbuf + 6);
 				if (ptn == 0) {
+					//add by allen
+					//bmp
+					#if 1
+					if(!memcmp(cmdbuf + 6,"bmp.",4)){
+						printf("try to update logo\n");
+						ptn = fastboot_flash_find_ptn("boot");
+						if ((download_bytes >ptn->length * MMC_SATA_BLOCK_SIZE) &&
+							!(ptn->flags & FASTBOOT_PTENTRY_FLAGS_WRITE_ENV)) {
+							printf("Image too large for the partition\n");
+							sprintf(response, "FAILimage too large for partition");
+							fastboot_tx_status(response, strlen(response));
+							return -1;	
+						} 
+						#if 0
+						else if (ptn->flags & FASTBOOT_PTENTRY_FLAGS_WRITE_ENV) {
+							/* Check if this is not really a flash write,
+							 * but instead a saveenv
+							 */
+							unsigned int i = 0;
+							/* Env file is expected with a NULL delimeter between
+							 * env variables So replace New line Feeds (0x0a) with
+							 * NULL (0x00)
+							 */
+							printf("Goto write env, flags=0x%x\n",ptn->flags);
+							for (i = 0; i < download_bytes; i++) {
+								if (interface.transfer_buffer[i] == 0x0a)
+								interface.transfer_buffer[i] = 0x00;
+							}
+							memset(env_ptr->data, 0, ENV_SIZE);
+							memcpy(env_ptr->data, interface.transfer_buffer, download_bytes);
+							do_saveenv(NULL, 0, 1, NULL);
+							printf("saveenv to '%s' DONE!\n", ptn->name);
+							sprintf(response, "OKAY");
+						}
+						#endif
+						else{
+						#if 1
+							int result;
+							sprintf(source, "0x%x", (unsigned int)interface.transfer_buffer);
+												/* block count */
+							temp = (download_bytes +
+								    MMC_SATA_BLOCK_SIZE - 1) /
+								    MMC_SATA_BLOCK_SIZE;
+							//sprintf(length, "0x%x", temp);
+							sprintf(length, "0x%x", download_bytes);
+							
+							//dprintf("write bmp %s\n",(const char*)(cmdbuf + 6));
+							//result = bmp_manager_writebmp((const char*)(cmdbuf + 6),source,length);
+							//result = bmp_manager_writebmp((const char*)(cmdbuf + 6),source,download_bytes);
+							result = bmp_manager_writebmp((const char*)(cmdbuf + 6),(void *)interface.transfer_buffer,download_bytes);
+							if(result)
+								sprintf(response, "Write bmp fail");
+							else                    
+								sprintf(response, "OKAY");
+							fastboot_tx_status(response, strlen(response));
+							return result;	
+						#endif
+						}
+					}
+				//add by allen
+				#endif
 					printf("Partition:'%s' does not exist\n", ptn->name);
 					sprintf(response, "FAILpartition does not exist");
 				} else if ((download_bytes >
@@ -1168,10 +1239,10 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 					printf("saveenv to '%s' DONE!\n", ptn->name);
 					sprintf(response, "OKAY");
 				} else {
-					char source[32], dest[32];
-					char length[32], slot_no[32];
-					char part_no[32];
-					unsigned int temp;
+					//char source[32], dest[32];
+					//char length[32], slot_no[32];
+					//char part_no[32];
+					//unsigned int temp;
 
 					/* Normal case */
 					if (fastboot_devinfo.type == DEV_MMC)
@@ -1437,6 +1508,7 @@ mmc_ops:
 
 	return ret;
 }
+
 
 static int check_against_static_partition(struct fastboot_ptentry *ptn)
 {

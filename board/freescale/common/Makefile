@@ -29,6 +29,7 @@ endif
 
 LIB	= $(obj)lib$(VENDOR).a
 
+COBJS-${CONFIG_MXC}		+= bmpmanager.o
 COBJS-${CONFIG_MXC}		+= fsl_sys_rev.o
 COBJS-${CONFIG_FSL_CADMUS}	+= cadmus.o
 COBJS-${CONFIG_FSL_VIA}		+= cds_via.o
