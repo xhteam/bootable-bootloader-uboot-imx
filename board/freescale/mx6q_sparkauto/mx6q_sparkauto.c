@@ -1690,14 +1690,19 @@ void setup_splash_image(void)
 	ulong addr;
 
 	//add by allenyao 
-	unsigned long size;
+	long size;
 	unsigned long logo;
 	logo = 0x20000000;		
 	run_command("mmc dev 3",0);
 	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
-	size=size*512;
-	printf("the logo size is 0x%x\n",size);
+	if(size<0){
+		printf("There are not bmp imagen");
+		size =0;	
+	}else{
+		size=size*512;
+		printf("the logo size is 0x%x\n",size);
 	//add by allenyao end
+	}
 
 	s = getenv("splashimage");
 

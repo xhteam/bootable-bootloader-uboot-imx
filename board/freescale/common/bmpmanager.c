@@ -173,7 +173,7 @@ int bmp_manager_getbmp(const char* name,bmp_t* bmp){
 	
 }
 
-unsigned long bmp_manager_readbmp(const char* name,void* data,unsigned long size){
+ long bmp_manager_readbmp(const char* name,void* data,unsigned long size){
 	//ptentry* entry;
 	char cmdbuffer[128];
 	bmp_t bmp;

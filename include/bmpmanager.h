@@ -13,7 +13,7 @@ int bmp_manager_init(const char* part);
 int bmp_manager_getbmp(const char* name,bmp_t* bmp);
 
 //read /write bmp data
-unsigned long bmp_manager_readbmp(const char* name,void* data,unsigned long size);
+long bmp_manager_readbmp(const char* name,void* data,unsigned long size);
 int bmp_manager_writebmp(const char* name,void* data,unsigned long size);
 
 
