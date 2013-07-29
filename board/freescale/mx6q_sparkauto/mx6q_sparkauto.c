@@ -116,8 +116,8 @@ unsigned short colormap[65536];
 unsigned short colormap[16777216];
 #endif
 
-static struct pwm_device pwm0 = {
-	.pwm_id = 0,
+static struct pwm_device pwm1 = {
+	.pwm_id = 1,
 	.pwmo_invert = 0,
 };
 
@@ -1417,6 +1417,45 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 
 #ifndef CONFIG_MXC_EPDC
 #ifdef CONFIG_LCD
+#if defined CONFIG_MX6Q
+iomux_v3_cfg_t lcd_pads[] = {
+	/* DISPLAY */
+	MX6Q_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
+	MX6Q_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
+	MX6Q_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
+	MX6Q_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
+	MX6Q_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
+	MX6Q_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
+	MX6Q_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
+	MX6Q_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
+	MX6Q_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
+	MX6Q_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
+	MX6Q_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
+	MX6Q_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
+	MX6Q_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
+	MX6Q_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
+	MX6Q_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
+	MX6Q_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
+	MX6Q_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
+	MX6Q_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
+	MX6Q_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
+	MX6Q_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
+	MX6Q_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
+	MX6Q_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
+	MX6Q_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
+	MX6Q_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
+	MX6Q_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
+	MX6Q_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
+	MX6Q_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
+	MX6Q_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
+	MX6Q_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
+	MX6Q_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
+	MX6Q_PAD_GPIO_9__GPIO_1_9,		/* J7 - Display Connector GP */
+	/* MX6Q_PAD_NANDF_D0__GPIO_2_0,*/	/* J6 - LVDS Display contrast */
+};
+#endif
+
+
 void lcd_enable(void)
 {
 	char *s;
@@ -1433,12 +1472,13 @@ void lcd_enable(void)
 	*/
 	g_ipu_hw_rev = IPUV3_HW_REV_IPUV3H;
 
-	imx_pwm_config(pwm0, 25000, 50000);
-	imx_pwm_enable(pwm0);
+	imx_pwm_config(pwm1, 25000, 50000);
+	imx_pwm_enable(pwm1);
 
 #if defined CONFIG_MX6Q
 	/* PWM backlight */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_SD1_DAT3__PWM1_PWMO);
+	//mxc_iomux_v3_setup_pad(MX6Q_PAD_SD1_DAT3__PWM1_PWMO);
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_1__PWM2_PWMO);
 	/* LVDS panel CABC_EN0 */
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS2__GPIO_6_15);
 	/* LVDS panel CABC_EN1 */
@@ -1451,6 +1491,9 @@ void lcd_enable(void)
 	/* LVDS panel CABC_EN1 */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
+
+	mxc_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
+
 	/*
 	 * Set LVDS panel CABC_EN0 to low to disable
 	 * CABC function. This function will turn backlight
@@ -1458,6 +1501,43 @@ void lcd_enable(void)
 	 * simply disable it to get rid of annoying unstable
 	 * backlight phenomena.
 	 */
+
+	//add by allenyao
+	#if 1
+		/* BL_ON */ 	
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL2__GPIO_4_10);
+	/* LCD_POWER */ 	
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW2__GPIO_4_11);
+	/* MX6_VDD_3V3_EN */
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_EIM_D26__GPIO_3_26);
+	/* MX6_VDD_5V_EN */
+       mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS2__GPIO_6_15);
+
+	int  LCD_BL_ON	    =			IMX_GPIO_NR(4, 10);
+	int  LCD_POWER  =			IMX_GPIO_NR(4, 11);
+	int  MX6_VDD_3V3_EN	=	IMX_GPIO_NR(3, 26);
+	int  MX6_VDD_5V_EN	=		IMX_GPIO_NR(6, 15);
+
+	gpio_request(LCD_BL_ON, "bl_on");
+	gpio_direction_output(LCD_BL_ON, 1);
+	gpio_free(LCD_BL_ON);
+	
+	gpio_request(LCD_POWER, "lcd_power");
+	gpio_direction_output(LCD_POWER, 1);
+	gpio_free(LCD_POWER);
+	
+	gpio_request(MX6_VDD_3V3_EN, "vdd_3v3_en");
+	gpio_direction_output(MX6_VDD_3V3_EN, 1);
+	gpio_free(MX6_VDD_3V3_EN);
+	
+	gpio_request(MX6_VDD_5V_EN, "vdd_5v_en");
+	gpio_direction_output(MX6_VDD_5V_EN, 1);
+	gpio_free(MX6_VDD_5V_EN);
+	//add by allenyao end
+	#endif
+
+
+	#if 0
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
@@ -1465,6 +1545,7 @@ void lcd_enable(void)
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
 	reg &= ~(1 << 15);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+	#endif
 
 	/*
 	 * Set LVDS panel CABC_EN1 to low to disable
