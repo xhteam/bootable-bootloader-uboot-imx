@@ -100,7 +100,7 @@ extern void mdm_init(void); /* defined in board.c */
 static __inline__ int abortboot(int bootdelay)
 {
 	int abort = 0;
-	uint64_t etime = endtick(bootdelay);
+	//uint64_t etime = endtick(bootdelay);
 	struct {
 		char* str;
 		u_int len;
@@ -158,39 +158,48 @@ static __inline__ int abortboot(int bootdelay)
 	/* In order to keep up with incoming data, check timeout only
 	 * when catch up.
 	 */
-	do {
-		if (tstc()) {
-			if (presskey_len < presskey_max) {
-				presskey [presskey_len ++] = getc();
-			}
-			else {
-				for (i = 0; i < presskey_max - 1; i ++)
-					presskey [i] = presskey [i + 1];
+	//do {
+	while ((bootdelay > 0) && (!abort)) {
+		int loop;
 
-				presskey [i] = getc();
-			}
-		}
+		--bootdelay;
+				/* delay 100 * 10ms */
+		for (loop=0; !abort && loop<100; ++loop) {
+			if (tstc()) {
+				if (presskey_len < presskey_max) {
+					presskey [presskey_len ++] = getc();
+				}
+				else {
+					for (i = 0; i < presskey_max - 1; i ++)
+						presskey [i] = presskey [i + 1];
 
-		for (i = 0; i < sizeof(delaykey) / sizeof(delaykey[0]); i ++) {
-			if (delaykey[i].len > 0 &&
-			    presskey_len >= delaykey[i].len &&
-			    memcmp (presskey + presskey_len - delaykey[i].len,
-				    delaykey[i].str,
-				    delaykey[i].len) == 0) {
+					presskey [i] = getc();
+				}
+			}
+
+			for (i = 0; i < sizeof(delaykey) / sizeof(delaykey[0]); i ++) {
+				if (delaykey[i].len > 0 &&
+				    presskey_len >= delaykey[i].len &&
+				    memcmp (presskey + presskey_len - delaykey[i].len,
+					    delaykey[i].str,
+					    delaykey[i].len) == 0) {
 #  if DEBUG_BOOTKEYS
-				printf("got %skey\n",
-				       delaykey[i].retry ? "delay" : "stop");
+					printf("got %skey\n",
+					       delaykey[i].retry ? "delay" : "stop");
 #  endif
 
 #  ifdef CONFIG_BOOT_RETRY_TIME
-				/* don't retry auto boot */
-				if (! delaykey[i].retry)
-					retry_time = -1;
+					/* don't retry auto boot */
+					if (! delaykey[i].retry)
+						retry_time = -1;
 #  endif
-				abort = 1;
+					abort = 1;
+					break;
+				}
 			}
+			udelay(10*1000);
 		}
-	} while (!abort && get_ticks() <= etime);
+	} //while (!abort && get_ticks() <= etime);
 
 #  if DEBUG_BOOTKEYS
 	if (!abort)
@@ -201,7 +210,6 @@ static __inline__ int abortboot(int bootdelay)
 	if (abort)
 		gd->flags &= ~GD_FLG_SILENT;
 #endif
-
 	return abort;
 }
 
@@ -434,6 +442,10 @@ void main_loop (void)
 	    extern void video_banner(void);
 	    video_banner();
 	}
+#endif
+
+#ifdef CONFIG_CONSOLE_PASSWORD
+	trap_loop();
 #endif
 
 	/*

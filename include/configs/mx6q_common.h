@@ -108,7 +108,18 @@
 
 #define CONFIG_CMD_IMX_DOWNLOAD_MODE
 
-#define CONFIG_BOOTDELAY 3
+#define CONFIG_BOOTDELAY 1
+
+//add by allenyao 
+#define CONFIG_CONSOLE_PASSWORD
+#define CONFIG_MISC_INIT_R
+#define CONFIG_MD5
+#define CONFIG_AUTOBOOT_KEYED	1
+#define CONFIG_AUTOBOOT_PROMPT 	\
+	"Autobooting in %d seconds\n", bootdelay
+#define CONFIG_AUTOBOOT_DELAY_STR "\x1b\x1b"
+//#define CONFIG_CFB_CONSOLE	1
+//add by allenyao end
 
 #define CONFIG_PRIME	"FEC0"
 
