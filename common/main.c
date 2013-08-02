@@ -100,7 +100,7 @@ extern void mdm_init(void); /* defined in board.c */
 static __inline__ int abortboot(int bootdelay)
 {
 	int abort = 0;
-	//uint64_t etime = endtick(bootdelay);
+	uint64_t etime = endtick(bootdelay);
 	struct {
 		char* str;
 		u_int len;
@@ -158,13 +158,7 @@ static __inline__ int abortboot(int bootdelay)
 	/* In order to keep up with incoming data, check timeout only
 	 * when catch up.
 	 */
-	//do {
-	while ((bootdelay > 0) && (!abort)) {
-		int loop;
-
-		--bootdelay;
-				/* delay 100 * 10ms */
-		for (loop=0; !abort && loop<100; ++loop) {
+	do {
 			if (tstc()) {
 				if (presskey_len < presskey_max) {
 					presskey [presskey_len ++] = getc();
@@ -194,12 +188,9 @@ static __inline__ int abortboot(int bootdelay)
 						retry_time = -1;
 #  endif
 					abort = 1;
-					break;
 				}
 			}
-			udelay(10*1000);
-		}
-	} //while (!abort && get_ticks() <= etime);
+	} while (!abort && get_ticks() <= etime);
 
 #  if DEBUG_BOOTKEYS
 	if (!abort)

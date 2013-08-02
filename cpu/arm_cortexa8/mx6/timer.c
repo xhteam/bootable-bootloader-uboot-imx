@@ -179,3 +179,18 @@ void udelay(unsigned long usec)
 	while (get_ticks() < tmp)	/* loop till event */
 		 /*NOP*/;
 }
+
+//add by allenyao 
+/*
+ * This function is derived from PowerPC code (timebase clock frequency).
+ * On ARM it returns the number of timer ticks per second.
+ */
+ulong get_tbclk (void)
+{
+	ulong tbclk;
+
+	tbclk = CONFIG_SYS_HZ;
+
+	return tbclk;
+}
+//add by allenyao end
