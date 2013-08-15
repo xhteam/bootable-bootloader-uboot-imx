@@ -749,6 +749,9 @@
 #define mx6_chip_is_solo()      chip_is_type(fsl_system_rev, CHIP_TYPE_SOLO)
 #define mx6_chip_is_sololite()	chip_is_type(fsl_system_rev, CHIP_TYPE_SOLOLITE)
 
+#define mx6_board_id()	((fsl_system_rev>>20)&0xF)
+#define mx6_board_rev()	((fsl_system_rev>>8)&0xF)
+
 #define mx6_chip_dq_name	"i.MX6Q"
 #define mx6_chip_dl_solo_name	"i.MX6DL/Solo"
 #define mx6_chip_sololite_name	"i.MX6SoloLite"

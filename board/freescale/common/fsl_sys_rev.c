@@ -43,6 +43,16 @@ unsigned int fsl_system_rev;
  *     0x63: i.MX6 Dual/Quad
  *     0x61: i.MX6 Solo/DualLite
  *     0x60: i.MX6 SoloLite
+ * 
+ * bit 23-20:Board Identification (type) 
+ * 0x0 : Unknown
+ * 0x1 : Sabre-AI (ARD)
+ * 0x2 : Smart Device (SD)
+ * 0x3 : Quick-Start Board (QSB)
+ * 0x4 : SoloLite EVK (SL-EVK)
+ * 0x6 : HDMI Dongle
+ * 0xA : SparkAuto
+ * 0xB : QPad
  */
 void fsl_set_system_rev(void)
 {
@@ -85,7 +95,9 @@ void fsl_set_system_rev(void)
 	 * 0x2 : Smart Device (SD)
 	 * 0x3 : Quick-Start Board (QSB)
 	 * 0x4 : SoloLite EVK (SL-EVK)
-     * 0x6 : HDMI Dongle
+     	 * 0x6 : HDMI Dongle
+	 * 0xA : SparkAuto
+	 * 0xB : QPad
 	 *
 	 * bit 8-11: Board Revision ID
 	 * 0x0 : Unknown or latest revision
@@ -116,6 +128,9 @@ void fsl_set_system_rev(void)
 		fsl_system_rev |= BOARD_REV_1;
 		break;
 	}
+
+	//assign board type
+	fsl_system_rev |= (((board_type>>12)&0xF) << 20);
 #endif
 }
 
