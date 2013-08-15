@@ -77,4 +77,18 @@
 		"splashimage=0x30000000\0"				\
 		"splashpos=m,m\0"					\
 		"lvds_num=1\0"
+
+
+//add by allenyao 
+#define CONFIG_CONSOLE_PASSWORD
+#define CONFIG_MISC_INIT_R
+#define CONFIG_MD5
+#define CONFIG_AUTOBOOT_KEYED	1
+#define CONFIG_AUTOBOOT_PROMPT 	\
+	"Autobooting in %d seconds\n", bootdelay
+#define CONFIG_AUTOBOOT_DELAY_STR "\x1b\x1b"
+//#define CONFIG_CFB_CONSOLE	1
+//add by allenyao end
+
+
 #endif
