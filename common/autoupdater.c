@@ -186,9 +186,11 @@ U_BOOT_CMD(
 	CONFIG_AUTOUPDATER_FILE_NAME "from usb/sd disk then update system"
 );
 
+int inline __autoupdate_mode_detect (void) {return 0;}
+int autoupdate_mode_detect(void)__attribute__((weak, alias("__autoupdate_mode_detect")));
 
 int check_autoupdate_mode(void){	
-	if (autoupdate_check_and_clean_flag())
+	if (autoupdate_check_and_clean_flag()||autoupdate_mode_detect())
 		do_autoupdate(NULL, 0, 0, 0);
 }
 

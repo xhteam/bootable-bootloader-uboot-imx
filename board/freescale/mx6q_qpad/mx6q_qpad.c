@@ -82,9 +82,11 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static enum boot_device boot_dev;
 
-#define GPIO_VOL_DN_KEY IMX_GPIO_NR(1, 5)
+#define KEY_MENU_IO IMX_GPIO_NR(3, 9) /*KEY1*/
+#define KEY_HOME_IO IMX_GPIO_NR(3, 10) /*KEY2*/
+#define KEY_BACK_IO IMX_GPIO_NR(3, 11) /*KEY3*/
+
 #define USB_OTG_PWR IMX_GPIO_NR(3, 22)
-#define USB_H1_POWER IMX_GPIO_NR(1, 29)
 
 
 #ifdef CONFIG_VIDEO_MX5
@@ -1188,13 +1190,7 @@ int board_init(void)
 #endif
 #endif
 
-#ifdef CONFIG_NAND_GPMI
-	setup_gpmi_nand();
-#endif
 
-#ifdef CONFIG_MXC_EPDC
-	setup_epdc();
-#endif
 	return 0;
 }
 
@@ -1208,12 +1204,15 @@ int check_recovery_cmd_file(void)
 
 	recovery_mode = check_and_clean_recovery_flag();
 
-	/* Check Recovery Combo Button press or not. */
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
 
-	gpio_direction_input(GPIO_VOL_DN_KEY);
+	gpio_direction_input(KEY_MENU_IO);
+	gpio_direction_input(KEY_HOME_IO);
+	gpio_direction_input(KEY_BACK_IO);
 
-	if (gpio_get_value(GPIO_VOL_DN_KEY) == 0) { /* VOL_DN key is low assert */
+	if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_HOME_IO)) { 
 		button_pressed = 1;
 		printf("Recovery key pressed\n");
 	}
@@ -1226,19 +1225,47 @@ int check_recovery_cmd_file(void)
 int fastboot_mode_detect(void){
 	int button_pressed = 0;
 
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
 
-	gpio_direction_input(GPIO_VOL_DN_KEY);
+	gpio_direction_input(KEY_MENU_IO);
+	gpio_direction_input(KEY_HOME_IO);
+	gpio_direction_input(KEY_BACK_IO);
 
-	if (gpio_get_value(GPIO_VOL_DN_KEY) == 0) { /* VOL_DN key is low assert */
+	if (!gpio_get_value(KEY_HOME_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
 		button_pressed = 1;
 		printf("Fastboot key pressed\n");
 	}
+
 
 	return button_pressed;
 	
 }
 
+#endif
+
+#ifdef CONFIG_AUTOUPDATE
+int autoupdate_mode_detect(void){
+	int button_pressed = 0;
+
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
+
+	gpio_direction_input(KEY_MENU_IO);
+	gpio_direction_input(KEY_HOME_IO);
+	gpio_direction_input(KEY_BACK_IO);
+
+	if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
+		button_pressed = 1;
+		printf("Autoupdate key pressed\n");
+	}
+
+
+	return button_pressed;
+	
+}
 #endif
 int board_late_init(void)
 {
@@ -1378,16 +1405,14 @@ int checkboard(void)
 
 void udc_pins_setting(void)
 {
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_RX_ER__ANATOP_USBOTG_ID));
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_1__USBOTG_ID));	
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D22__GPIO_3_22));
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_TXD1__GPIO_1_29));
 
 	/* USB_OTG_PWR = 0 */
 	gpio_direction_output(USB_OTG_PWR, 0);
-	/* USB_H1_POWER = 1 */
-	gpio_direction_output(USB_H1_POWER, 1);
 
-	mxc_iomux_set_gpr_register(1, 13, 1, 0);
+	//Set GPIO_1 as OTG_ID pin
+	mxc_iomux_set_gpr_register(1, 13, 1, 1);
 
 }
 #endif
