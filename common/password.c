@@ -258,29 +258,27 @@ trap_loop()
 	unsigned long long start,end,usleft;
 	unsigned long long tmo = CONFIG_SYS_HZ;
 	int next_delay;
-    int pass_delay;
-    next_delay = 1;
+    	int pass_delay;
+    	next_delay = 1;
 	if (setup_lock_status() == LOCKED) {
-
 		while (1) {
-
 			memset(buffer, 0, BUFFER_MAX_LEN);
 			read_password("Enter password:", buffer,
 				      BUFFER_MAX_LEN);
-
 			if (!unlock(buffer, strlen(buffer)))
 				return;
 			pass_delay = next_delay;
-            printf("password invalid,wait %d seconds...\n",pass_delay);
+            		printf("password invalid,wait %d seconds...\n",pass_delay);
 			while(pass_delay>0){
-    			pass_delay--;
-                start = get_ticks();
-                do {
-                    end = get_ticks();
-                    usleft = (start < end) ? (end - start) : (end + ~start);
-                } while (usleft < tmo);
-                
-            }
+				pass_delay--;
+				timer_init();//add by allenyao
+				reset_timer();//add by allenyao
+				start = get_ticks();
+				do {
+					end = get_ticks();
+					usleft = (start <= end) ? (end - start) : (end + ~start);
+				} while (usleft < tmo);
+			}
 			next_delay *= 2;
 
 		}

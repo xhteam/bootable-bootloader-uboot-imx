@@ -41,8 +41,8 @@
 #define GPTCR_CLKSOURCE_32	(4 << 6)	/* Clock source */
 #define GPTCR_TEN		(1)		/* Timer enable */
 
-static ulong timestamp;
-static ulong lastinc;
+static unsigned long long timestamp;
+static unsigned long long lastinc;
 
 /* "time" is measured in 1 / CONFIG_SYS_HZ seconds,
  * "tick" is internal timer period */
@@ -108,7 +108,8 @@ static inline void setup_gpt(void)
 		GPTCR = 0;	/* We have no udelay by now */
 	GPTPR = 0;	/* 32KHz */
 	/* Freerun Mode, CLK32 input */
-	GPTCR |= GPTCR_CLKSOURCE_32 | GPTCR_TEN;
+	//GPTCR |= GPTCR_CLKSOURCE_32 | GPTCR_TEN;
+	GPTCR |= GPTCR_CLKSOURCE_32 | GPTCR_TEN | GPTCR_FRR; /*change by allenyao*/
 }
 
 int timer_init(void)
@@ -132,7 +133,7 @@ void reset_timer(void)
 
 unsigned long long get_ticks(void)
 {
-	ulong now = GPTCNT; /* current tick value */
+	unsigned long long now = GPTCNT; /* current tick value */
 
 	if (now >= lastinc)	/* normal mode (non roll) */
 		/* move stamp forward with absolut diff ticks */
