@@ -1235,6 +1235,30 @@ int fastboot_check_and_clean_flag(void)
 }
 #endif
 
+#ifdef CONFIG_AUTOUPDATE
+#define ANDROID_AUTOUPDATE_BOOT  (1 << 9)
+/* check if the autoupdate bit is set by kernel, it can be set by kernel
+ * issue a command '# reboot autoupdate' */
+int autoupdate_check_and_clean_flag(void)
+{
+	int flag_set = 0;
+	u32 reg;
+
+	reg = readl(SNVS_BASE_ADDR + SNVS_LPGPR);
+
+	flag_set = !!(reg & ANDROID_AUTOUPDATE_BOOT);
+
+	/* clean it in case looping infinite here.... */
+	if (flag_set) {
+		reg &= ~ANDROID_AUTOUPDATE_BOOT;
+		writel(reg, SNVS_BASE_ADDR + SNVS_LPGPR);
+	}
+
+	return flag_set;
+}
+#endif
+
+
 #ifdef CONFIG_CMD_IMX_DOWNLOAD_MODE
 #define PERSIST_WATCHDOG_RESET_BOOT		(0x10000000)
 /*BOOT_CFG1[7..4] = 0x3 Boot from Serial ROM (I2C/SPI)*/

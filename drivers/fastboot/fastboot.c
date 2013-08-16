@@ -790,10 +790,14 @@ static int fastboot_cdc_setup(struct usb_device_request *request, struct urb *ur
 	return 0;
 }
 
+int inline __fastboot_mode_detect (void) {return 0;}
+int fastboot_mode_detect(void)__attribute__((weak, alias("__fastboot_mode_detect")));
+
+
 /* export to lib_arm/board.c */
 void check_fastboot_mode(void)
 {
-	if (fastboot_check_and_clean_flag())
+	if (fastboot_check_and_clean_flag()||fastboot_mode_detect())
 		do_fastboot(NULL, 0, 0, 0);
 }
 

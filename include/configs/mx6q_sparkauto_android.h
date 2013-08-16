@@ -24,6 +24,54 @@
 
 #include "mx6q_common.h"
 
+/*
+ * SATA Configs
+ */
+#ifdef CONFIG_CMD_SATA
+	#define CONFIG_DWC_AHSATA
+	#define CONFIG_SYS_SATA_MAX_DEVICE	1
+	#define CONFIG_DWC_AHSATA_PORT_ID	0
+	#define CONFIG_DWC_AHSATA_BASE_ADDR	SATA_ARB_BASE_ADDR
+	#define CONFIG_LBA48
+	#define CONFIG_LIBATA
+
+	#define CONFIG_DOS_PARTITION	1
+	#define CONFIG_CMD_FAT		1
+	#define CONFIG_CMD_EXT2		1
+#endif
+
+
+#define CONFIG_FEC0_IOBASE	ENET_BASE_ADDR
+#define CONFIG_FEC0_PINMUX	-1
+#define CONFIG_FEC0_MIIBASE	-1
+#define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
+#define CONFIG_MXC_FEC
+#define CONFIG_FEC0_PHY_ADDR		0xFF
+#define CONFIG_DISCOVER_PHY
+#define CONFIG_ETH_PRIME
+#define CONFIG_RMII
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_PING
+#define CONFIG_IPADDR			192.168.1.103
+#define CONFIG_SERVERIP			192.168.1.101
+#define CONFIG_NETMASK			255.255.255.0
+
+#define CONFIG_CMD_SPI
+#define CONFIG_CMD_SF
+/*
+ * SPI Configs
+ */
+#ifdef CONFIG_CMD_SF
+	#define CONFIG_FSL_SF		1
+	#define CONFIG_SPI_FLASH_IMX_M25PXX	1
+	#define CONFIG_SPI_FLASH_CS	0
+	#define CONFIG_IMX_ECSPI
+	#define IMX_CSPI_VER_2_3	1
+	#define MAX_SPI_BYTES		(64 * 4)
+#endif
+
+
 #define CONFIG_USB_DEVICE
 #define CONFIG_IMX_UDC		       1
 #define CONFIG_FASTBOOT		       1

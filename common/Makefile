@@ -173,6 +173,7 @@ COBJS-$(CONFIG_UPDATE_TFTP) += update.o
 COBJS-$(CONFIG_USB_KEYBOARD) += usb_kbd.o
 COBJS-$(CONFIG_FASTBOOT) += cmd_fastboot.o
 COBJS-$(CONFIG_CMD_IMXOTP) += cmd_imxotp.o
+COBJS-$(CONFIG_AUTOUPDATE) += autoupdater.o
 COBJS-y += password.o
 
 COBJS	:= $(sort $(COBJS-y))
