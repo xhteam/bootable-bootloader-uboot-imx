@@ -95,6 +95,9 @@
 	{"mmcstart;mmc sw_dev 0;mmc rescan","mmc",0}, \
 	{"usb start","usb",0}, 
 
-
+/*
+ *Enable MIPI panel in uboot
+*/
+#define MIPI_DSI	1
 
 #endif

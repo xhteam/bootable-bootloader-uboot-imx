@@ -24,6 +24,8 @@
 #include <asm/io.h>
 #include <asm/arch/mx6.h>
 #include <asm/arch/mx6_pins.h>
+#include "../../../drivers/video/mipi_common.h"//add by allenyao
+#include <mipi_dsi.h>
 #if defined(CONFIG_SECURE_BOOT)
 #include <asm/arch/mx6_secure.h>
 #endif
@@ -138,6 +140,29 @@ static struct fb_videomode lvds_wvga = {
 	 FB_SYNC_EXT,
 	 FB_VMODE_NONINTERLACED,
 	 0,
+};
+
+static struct fb_videomode mipi_dsi_bak = {	/*add by allenyao*/
+	"TRULY-WVGA", 64, 480, 800, 37880, 8, 8, 6, 6, 8, 6,
+	FB_SYNC_OE_LOW_ACT,
+	FB_VMODE_NONINTERLACED,
+	0,
+};
+
+static struct fb_videomode mipi_dsi = {/*add by allenyao*/
+	 "TRULY-WVGA", 60, 540, 960, 32150/*ps*/,
+	 3, 3,
+	 5, 5,
+	 8, 3,
+	 FB_SYNC_OE_LOW_ACT,//ori is  FB_SYNC_OE_LOW_ACT
+	 FB_VMODE_NONINTERLACED,//ori is  FB_VMODE_NONINTERLACED
+	 0,
+};
+static struct mipi_lcd_config mipilcd_config = {//add by allenyao
+	.virtual_ch		= 0x0,
+	.data_lane_num  = 0x2,
+	.max_phy_clk    = 450,
+	.dpi_fmt		= MIPI_RGB888,
 };
 
 vidinfo_t panel_info;
@@ -1420,6 +1445,279 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 
 #endif
 
+/*add by allenyao*/
+void
+msleep(int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+		udelay(1000);
+}
+
+void power_on_and_reset_mipi_panel_6Q(void)
+{
+	int reg;
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS1__GPIO_6_14);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 14);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 14);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS0__GPIO_6_11);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	udelay(10);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg &= ~(1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	udelay(50);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+	msleep(200);
+}
+
+void power_on_and_reset_mipi_panel_6DL(void)
+{
+	int reg;
+	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS1__GPIO_6_14);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 14);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 14);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS0__GPIO_6_11);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	udelay(10);
+
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg &= ~(1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+
+	udelay(50);
+	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 11);
+	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
+	msleep(200);
+}
+
+void mipi_clk_enable(void)
+{
+	int reg;
+	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
+	reg &= ~(3<<16);
+	reg |= (3<<16);
+	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
+}
+
+void dphy_write_control(unsigned long testcode, unsigned long testwrite)
+{
+	writel(0x00000000, DSI_PHY_TST_CTRL0);
+	writel((0x00010000 | testcode), DSI_PHY_TST_CTRL1);
+	writel(0x00000002, DSI_PHY_TST_CTRL0);
+	writel(0x00000000, DSI_PHY_TST_CTRL0);
+	writel((0x00000000 | testwrite), DSI_PHY_TST_CTRL1);
+	writel(0x00000002, DSI_PHY_TST_CTRL0);
+	writel(0x00000000, DSI_PHY_TST_CTRL0);
+}
+
+void mipi_dsi_enable_controller(void)
+{
+	printf("come to %s--allenyao\n",__func__);
+	int rd_data, timeout = 0;
+	u32		val;
+	u32		lane_byte_clk_period;
+
+	/* config MIPI DSI controller*/
+	writel(0x0, DSI_PWR_UP);
+	writel(0x00000000, DSI_PHY_RSTZ);
+	writel(0x107, DSI_CLKMGR_CFG);
+	
+	#if MIPI_DSI
+	//add by allenyao
+	val = readl(DSI_DPI_CFG);
+	val &=0x00000000;
+	if (!(mipi_dsi.sync & FB_SYNC_VERT_HIGH_ACT))
+			val = DSI_DPI_CFG_VSYNC_ACT_LOW;
+	if (!(mipi_dsi.sync & FB_SYNC_HOR_HIGH_ACT))
+			val |= DSI_DPI_CFG_HSYNC_ACT_LOW;
+	if ((mipi_dsi.sync & FB_SYNC_OE_LOW_ACT))
+			val |= DSI_DPI_CFG_DATAEN_ACT_LOW;
+	if (MIPI_RGB666_LOOSELY == mipilcd_config.dpi_fmt)
+			val |= DSI_DPI_CFG_EN18LOOSELY;
+	val |= (mipilcd_config.dpi_fmt & DSI_DPI_CFG_COLORCODE_MASK)
+				<< DSI_DPI_CFG_COLORCODE_SHIFT;
+	val |= (mipilcd_config.virtual_ch & DSI_DPI_CFG_VID_MASK)
+				<< DSI_DPI_CFG_VID_SHIFT;
+	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
+	writel(val, DSI_DPI_CFG);
+	//writel(0xf4, DSI_DPI_CFG);
+	printf("come to %s-%d-allenyao\n",__func__,__LINE__);
+	//add by allenyao end
+	#else
+	writel(0xf4, DSI_DPI_CFG);//not use by allenyao
+	#endif
+
+	writel(0x1c, DSI_PCKHDL_CFG);
+	
+	#if MIPI_DSI
+	//add by allenyao
+	val = (mipi_dsi.xres & DSI_VID_PKT_CFG_VID_PKT_SZ_MASK)
+				<< DSI_VID_PKT_CFG_VID_PKT_SZ_SHIFT;
+	val |= (NUMBER_OF_CHUNKS & DSI_VID_PKT_CFG_NUM_CHUNKS_MASK)
+				<< DSI_VID_PKT_CFG_NUM_CHUNKS_SHIFT;
+	val |= (NULL_PKT_SIZE & DSI_VID_PKT_CFG_NULL_PKT_SZ_MASK)
+				<< DSI_VID_PKT_CFG_NULL_PKT_SZ_SHIFT;
+	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
+	writel(val, DSI_VID_PKT_CFG);
+	//add by allenyao end
+	#else
+	writel(0x10041e0, DSI_VID_PKT_CFG);//not use by allenyao
+	#endif
+
+	writel(0x00001fff, DSI_CMD_MODE_CFG);
+	
+	#if MIPI_DSI
+	/*add by allenyao*/
+	lane_byte_clk_period = NS2PS_RATIO /
+				(mipilcd_config.max_phy_clk / BITS_PER_BYTE);
+	val  = ROUND_UP(mipi_dsi.hsync_len * mipi_dsi.pixclock /
+				NS2PS_RATIO / lane_byte_clk_period)
+				<< DSI_TME_LINE_CFG_HSA_TIME_SHIFT;
+	val |= ROUND_UP(mipi_dsi.left_margin * mipi_dsi.pixclock /
+				NS2PS_RATIO / lane_byte_clk_period)
+				<< DSI_TME_LINE_CFG_HBP_TIME_SHIFT;
+	val |= ROUND_UP((mipi_dsi.left_margin + mipi_dsi.right_margin +
+				mipi_dsi.hsync_len + mipi_dsi.xres) * mipi_dsi.pixclock
+				/ NS2PS_RATIO / lane_byte_clk_period)
+				<< DSI_TME_LINE_CFG_HLINE_TIME_SHIFT;
+	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
+	writel(val , DSI_TMR_LINE_CFG);
+	/*add by allenyao end*/
+	#else
+	writel(0x1dd83e1f, DSI_TMR_LINE_CFG);	
+	#endif
+	
+	#if MIPI_DSI
+	/*add by allenyao*/
+	val = ((mipi_dsi.vsync_len & DSI_VTIMING_CFG_VSA_LINES_MASK)
+					<< DSI_VTIMING_CFG_VSA_LINES_SHIFT);
+	val |= ((mipi_dsi.upper_margin & DSI_VTIMING_CFG_VBP_LINES_MASK)
+				<< DSI_VTIMING_CFG_VBP_LINES_SHIFT);
+	val |= ((mipi_dsi.lower_margin & DSI_VTIMING_CFG_VFP_LINES_MASK)
+				<< DSI_VTIMING_CFG_VFP_LINES_SHIFT);
+	val |= ((mipi_dsi.yres & DSI_VTIMING_CFG_V_ACT_LINES_MASK)
+				<< DSI_VTIMING_CFG_V_ACT_LINES_SHIFT);
+	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
+	writel(val, DSI_VTIMING_CFG);
+	/*add by allenyao end*/
+	#else
+	writel(0x3201866, DSI_VTIMING_CFG);
+	#endif
+	
+	writel(0x4040d00, DSI_TMR_CFG);
+	writel(0x81, DSI_PHY_IF_CFG);//double lane
+	writel(0x0, DSI_ERROR_MSK0);
+	writel(0x0, DSI_ERROR_MSK1);
+
+	/* mipi_dsi_dphy_init */
+	writel(0x00, DSI_PHY_IF_CTRL);
+	writel(0x1, DSI_PWR_UP);
+	//dphy_write_control(0x44, 0x32);  /* PLL 27M ref_clk out to 1GHz */
+	dphy_write_control(0x44, 0x0c);//change by allenyao
+	writel(0x7, DSI_PHY_RSTZ);
+	rd_data = readl(DSI_PHY_STATUS);
+	while ((rd_data & 0x00000001) != 0x01) {
+		msleep(1);
+		timeout++;
+		if (timeout == 10) {
+			printf("Error: phy lock timeout!\n");
+			break;
+		}
+		rd_data = readl(DSI_PHY_STATUS);
+	}
+	timeout = 0;
+	while ((rd_data & 0x00000004) != 0x04) {
+		msleep(1);
+		timeout++;
+		if (timeout == 10) {
+			printf("Error: phy lock lane timeout!\n");
+			break;
+		}
+		rd_data = readl(DSI_PHY_STATUS);
+	}
+	printf("come to %s--end--allenyao\n",__func__);
+
+	return;
+}
+
+void mipi_dsi_set_mode(int cmd_mode)
+{
+	u32 reg;
+	if (cmd_mode) {
+		writel(0x00, DSI_PWR_UP);
+		reg = readl(DSI_CMD_MODE_CFG);
+		reg |= 0x1;
+		writel(reg, DSI_CMD_MODE_CFG);
+		writel(0x0, DSI_VID_MODE_CFG);
+		writel(0x1, DSI_PWR_UP);
+	} else {
+		writel(0x00, DSI_PWR_UP);
+		reg = readl(DSI_CMD_MODE_CFG);
+		reg &= ~(0x1<<0);
+		writel(reg, DSI_CMD_MODE_CFG);
+		writel(0x1ff, DSI_VID_MODE_CFG);
+		writel(0x1, DSI_PWR_UP);
+		writel(0x1, DSI_PHY_IF_CTRL);
+	}
+}
+
+void mipi_dsi_enable()
+{
+	printf("come to %s--allenyao\n",__func__);
+	int err;
+
+	mipi_clk_enable();
+
+	mipi_dsi_enable_controller();
+
+	err = MIPILCD_ICINIT();
+	if (err < 0) {
+		printf("lcd init failed\n");
+		return;
+	}
+
+	mipi_dsi_set_mode(0);
+
+	return;
+}
+
+
+
+/*add by allenyao*/
+
 #ifndef CONFIG_MXC_EPDC
 #ifdef CONFIG_LCD
 #if defined CONFIG_MX6Q
@@ -1495,6 +1793,7 @@ iomux_v3_cfg_t lcd_pads[] = {
 
 void lcd_enable(void)
 {
+	printf("come to %s--allenyao\n",__func__);
 	char *s;
 	int ret;
 	unsigned int reg;
@@ -1557,9 +1856,9 @@ void lcd_enable(void)
 	reg &= ~(1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 
-	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk. */
+	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk/mipi_clk. */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
-	reg &= ~0xC033;
+	reg &= ~(0x3F03F);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 
 #if defined CONFIG_MX6Q
@@ -1620,6 +1919,23 @@ void lcd_enable(void)
 	reg |= (0x1 << 11);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CSCDR3);
 
+	/*add by allenyao*/
+#if MIPI_DSI
+	/* configs for mipi_pllref_clk, mipi_pllref_clk <- pll3_PFD_540M*/
+	/* pll3_usb_otg_main_clk */
+	/* divider */
+	writel(0x3, ANATOP_BASE_ADDR + 0x18); /* 24*20 = 480M */
+
+	/* pll3_pfd_540M */
+	/* divider */
+	writel(0x3F << 8, ANATOP_BASE_ADDR + 0xF8);
+	writel(0x10 << 8, ANATOP_BASE_ADDR + 0xF4); /* 480*18/16 = 540M */
+	/* enable */
+	//writel(0x1 << 15, ANATOP_BASE_ADDR + 0xF8);
+	writel(0x1 << 15, ANATOP_BASE_ADDR + 0xF8);//change by allenyao
+#else
+	/*add by allenyao end*/
+
 	/*
 	 * ipu1_pixel_clk_x clock tree:
 	 * osc_clk(24M)->pll2_528_bus_main_clk(528M)->
@@ -1654,6 +1970,7 @@ void lcd_enable(void)
 	reg &= ~0xE07;
 	reg |= 0x803;
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CHSCCDR);
+#endif
 #elif defined CONFIG_MX6DL /* CONFIG_MX6Q */
 	/*
 	 * IPU1 HSP clock tree:
@@ -1723,18 +2040,56 @@ void lcd_enable(void)
 	/* Enable ipu1/ipu1_dix/ldb_dix clocks. */
 	if (di == 1) {
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
-		reg |= 0xC033;
+		reg |= 0x3C033;
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	} else {
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
-		reg |= 0x300F;
+		reg |= 0x3300F;
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	}
 
+	/*add by allenyao*/
+#if MIPI_DSI
+#if defined CONFIG_MX6Q
+	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
+			DI_PCLK_PLL3, 26400000);
+#elif defined CONFIG_MX6DL
+	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
+			DI_PCLK_PLL3, 156454);
+#endif
+#else
+	/*add by allenyao end*/
+
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_LDB, 65000000);
+#endif
 	if (ret)
 		puts("LCD cannot be configured\n");
+
+	/*add by allenyao*/
+#if MIPI_DSI
+	/* mipi source mux to IPU1 DI1 */
+	if (di == 1) {
+		reg = readl(IOMUXC_BASE_ADDR + 0xC);
+		reg &= ~(0x00000030);
+		reg |= 0x00000010;
+		writel(reg, IOMUXC_BASE_ADDR + 0xC);
+	}
+
+	/* mipi source mux to IPU1 DI0 */
+	if (di == 0) {
+		reg = readl(IOMUXC_BASE_ADDR + 0xC);
+		reg &= ~(0x0000030);
+		writel(reg, IOMUXC_BASE_ADDR + 0xC);
+	}
+#if defined CONFIG_MX6Q
+	power_on_and_reset_mipi_panel_6Q();
+#elif defined CONFIG_MX6DL
+	power_on_and_reset_mipi_panel_6DL();
+#endif
+	mipi_dsi_enable();
+#endif
+	/*add by allenyao end*/
 
 	/*
 	 * LVDS0 mux to IPU1 DI0.
@@ -1753,6 +2108,15 @@ void lcd_enable(void)
 #endif
 
 #ifdef CONFIG_VIDEO_MX5
+#if MIPI_DSI
+void panel_info_init(void)
+{
+	panel_info.vl_bpix = LCD_BPP;
+	panel_info.vl_col = mipi_dsi.xres;
+	panel_info.vl_row = mipi_dsi.yres;
+	panel_info.cmap = colormap;
+}
+#else
 void panel_info_init(void)
 {
 	panel_info.vl_bpix = LCD_BPP;
@@ -1760,6 +2124,7 @@ void panel_info_init(void)
 	panel_info.vl_row = lvds_wvga.yres;
 	panel_info.cmap = colormap;
 }
+#endif
 #endif
 
 #ifdef CONFIG_SPLASH_SCREEN
@@ -1794,8 +2159,14 @@ void setup_splash_image(void)
 #endif
 		//memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
 				//fsl_bmp_reversed_600x400_size);
+//#if MIPI_DSI
+#if 0
+		memcpy((char *)addr, (char *)fsl_bmp_reversed_mipi_480x800,
+			fsl_bmp_reversed_mipi_480x800_size);
+#else
 		memcpy((char *)addr, (char *)logo,
 				size);
+#endif
 	}
 }
 #endif

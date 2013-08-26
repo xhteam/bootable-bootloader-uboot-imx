@@ -6,7 +6,7 @@
  *
  * Linux IPU driver
  *
- * (C) Copyright 2005-2011 Freescale Semiconductor, Inc.
+ * (C) Copyright 2011-2013 Freescale Semiconductor, Inc.
  *
  * See file CREDITS for list of people who contributed to this
  * project.
@@ -1210,10 +1210,14 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 			di_gen |= DI_GEN_POLARITY_3;
 
 		if (sig.clk_pol)
+#if MIPI_DSI
+			di_gen &= ~DI_GEN_POL_CLK;
+#else
 			di_gen |= DI_GEN_POL_CLK;
 
 		/* Set the clock to stop at counter 6. */
 		di_gen |= 0x6000000;
+#endif
 	}
 
 	__raw_writel(di_gen, DI_GENERAL(disp));
