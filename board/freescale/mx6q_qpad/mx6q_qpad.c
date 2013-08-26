@@ -33,9 +33,6 @@
 #include <asm/arch/iomux-v3.h>
 #include <asm/arch/regs-anadig.h>
 #include <asm/errno.h>
-#ifdef CONFIG_MXC_FEC
-#include <miiphy.h>
-#endif
 
 #if defined(CONFIG_VIDEO_MX5)
 #include <asm/imx_pwm.h>
@@ -50,9 +47,6 @@
 
 #include "../../../drivers/video/mxc_epdc_fb.h"
 
-#ifdef CONFIG_IMX_ECSPI
-#include <imx_spi.h>
-#endif
 
 #if CONFIG_I2C_MXC
 #include <i2c.h>
@@ -85,9 +79,6 @@
 #include <recovery.h>
 #endif
 
-#ifdef CONFIG_DWC_AHSATA
-#include <ahci.h>
-#endif
 
 //add by allen
 #include <bmpmanager.h>
@@ -128,11 +119,6 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 			ipu_di_clk_parent_t di_clk_parent,
 			int di_clk_val);
 
-static struct fb_videomode lvds_xga = {
-	 "XGA", 60, 1024, 768, 15385, 220, 40, 21, 7, 60, 10,
-	 FB_SYNC_EXT,
-	 FB_VMODE_NONINTERLACED,
-	 0,
 static struct fb_videomode lvds_wvga = {
 	 "WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
 	 FB_SYNC_EXT,
@@ -899,14 +885,15 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 
 #endif
 
-void
+static void
 msleep(int count)
 {
 	int i;
 	for (i = 0; i < count; i++)
 		udelay(1000);
 }
-void power_on_and_reset_mipi_panel_6Q(void)
+#warning "FIXME: change mipi-disp panel power_on_and_reset"
+static void power_on_and_reset_mipi_panel_6Q(void)
 {
 	int reg;
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS1__GPIO_6_14);
@@ -933,7 +920,7 @@ void power_on_and_reset_mipi_panel_6Q(void)
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 	msleep(200);
 }
-void mipi_clk_enable(void)
+static void mipi_clk_enable(void)
 {
 	int reg;
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
@@ -941,7 +928,7 @@ void mipi_clk_enable(void)
 	reg |= (3<<16);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 }
-void dphy_write_control(unsigned long testcode, unsigned long testwrite)
+static void dphy_write_control(unsigned long testcode, unsigned long testwrite)
 {
 	writel(0x00000000, DSI_PHY_TST_CTRL0);
 	writel((0x00010000 | testcode), DSI_PHY_TST_CTRL1);
@@ -951,9 +938,8 @@ void dphy_write_control(unsigned long testcode, unsigned long testwrite)
 	writel(0x00000002, DSI_PHY_TST_CTRL0);
 	writel(0x00000000, DSI_PHY_TST_CTRL0);
 }
-void mipi_dsi_enable_controller(void)
+static void mipi_dsi_enable_controller(void)
 {
-	printf("come to %s--allenyao\n",__func__);
 	int rd_data, timeout = 0;
 	u32		val;
 	u32		lane_byte_clk_period;
@@ -977,7 +963,6 @@ void mipi_dsi_enable_controller(void)
 				<< DSI_DPI_CFG_COLORCODE_SHIFT;
 	val |= (mipilcd_config.virtual_ch & DSI_DPI_CFG_VID_MASK)
 				<< DSI_DPI_CFG_VID_SHIFT;
-	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
 	writel(val, DSI_DPI_CFG);
 	//add by allenyao end
 	#else
@@ -992,7 +977,6 @@ void mipi_dsi_enable_controller(void)
 				<< DSI_VID_PKT_CFG_NUM_CHUNKS_SHIFT;
 	val |= (NULL_PKT_SIZE & DSI_VID_PKT_CFG_NULL_PKT_SZ_MASK)
 				<< DSI_VID_PKT_CFG_NULL_PKT_SZ_SHIFT;
-	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
 	writel(val, DSI_VID_PKT_CFG);
 	//add by allenyao end
 	#else
@@ -1065,10 +1049,9 @@ void mipi_dsi_enable_controller(void)
 		}
 		rd_data = readl(DSI_PHY_STATUS);
 	}
-	printf("come to %s--end--allenyao\n",__func__);
 	return;
 }
-void mipi_dsi_set_mode(int cmd_mode)
+static void mipi_dsi_set_mode(int cmd_mode)
 {
 	u32 reg;
 	if (cmd_mode) {
@@ -1088,7 +1071,7 @@ void mipi_dsi_set_mode(int cmd_mode)
 		writel(0x1, DSI_PHY_IF_CTRL);
 	}
 }
-void mipi_dsi_enable()
+static void mipi_dsi_enable()
 {
 	printf("come to %s--allenyao\n",__func__);
 	int err;
@@ -1103,78 +1086,7 @@ void mipi_dsi_enable()
 	return;
 }
 /*add by allenyao*/
-#ifndef CONFIG_MXC_EPDC
 #ifdef CONFIG_LCD
-#if defined CONFIG_MX6Q
-iomux_v3_cfg_t lcd_pads[] = {
-	MX6Q_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
-	MX6Q_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
-	MX6Q_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
-	MX6Q_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
-	MX6Q_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
-	MX6Q_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
-	MX6Q_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
-	MX6Q_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
-	MX6Q_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
-	MX6Q_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
-	MX6Q_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
-	MX6Q_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
-	MX6Q_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
-	MX6Q_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
-	MX6Q_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
-	MX6Q_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
-	MX6Q_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
-	MX6Q_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
-	MX6Q_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
-	MX6Q_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
-	MX6Q_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
-	MX6Q_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
-	MX6Q_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
-	MX6Q_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
-	MX6Q_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
-	MX6Q_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
-	MX6Q_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
-	MX6Q_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
-	MX6Q_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
-	MX6Q_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
-	MX6Q_PAD_GPIO_9__GPIO_1_9,
-};
-#elif defined CONFIG_MX6DL
-iomux_v3_cfg_t lcd_pads[] = {
-	MX6DL_PAD_DI0_DISP_CLK__IPU1_DI0_DISP_CLK,
-	MX6DL_PAD_DI0_PIN15__IPU1_DI0_PIN15,
-	MX6DL_PAD_DI0_PIN15__IPU1_DI0_PIN15,		/* DE */
-	MX6DL_PAD_DI0_PIN2__IPU1_DI0_PIN2,		/* HSync */
-	MX6DL_PAD_DI0_PIN3__IPU1_DI0_PIN3,		/* VSync */
-	MX6DL_PAD_DI0_PIN4__IPU1_DI0_PIN4,		/* Contrast */
-	MX6DL_PAD_DISP0_DAT0__IPU1_DISP0_DAT_0,
-	MX6DL_PAD_DISP0_DAT1__IPU1_DISP0_DAT_1,
-	MX6DL_PAD_DISP0_DAT2__IPU1_DISP0_DAT_2,
-	MX6DL_PAD_DISP0_DAT3__IPU1_DISP0_DAT_3,
-	MX6DL_PAD_DISP0_DAT4__IPU1_DISP0_DAT_4,
-	MX6DL_PAD_DISP0_DAT5__IPU1_DISP0_DAT_5,
-	MX6DL_PAD_DISP0_DAT6__IPU1_DISP0_DAT_6,
-	MX6DL_PAD_DISP0_DAT7__IPU1_DISP0_DAT_7,
-	MX6DL_PAD_DISP0_DAT8__IPU1_DISP0_DAT_8,
-	MX6DL_PAD_DISP0_DAT9__IPU1_DISP0_DAT_9,
-	MX6DL_PAD_DISP0_DAT10__IPU1_DISP0_DAT_10,
-	MX6DL_PAD_DISP0_DAT11__IPU1_DISP0_DAT_11,
-	MX6DL_PAD_DISP0_DAT12__IPU1_DISP0_DAT_12,
-	MX6DL_PAD_DISP0_DAT13__IPU1_DISP0_DAT_13,
-	MX6DL_PAD_DISP0_DAT14__IPU1_DISP0_DAT_14,
-	MX6DL_PAD_DISP0_DAT15__IPU1_DISP0_DAT_15,
-	MX6DL_PAD_DISP0_DAT16__IPU1_DISP0_DAT_16,
-	MX6DL_PAD_DISP0_DAT17__IPU1_DISP0_DAT_17,
-	MX6DL_PAD_DISP0_DAT18__IPU1_DISP0_DAT_18,
-	MX6DL_PAD_DISP0_DAT19__IPU1_DISP0_DAT_19,
-	MX6DL_PAD_DISP0_DAT20__IPU1_DISP0_DAT_20,
-	MX6DL_PAD_DISP0_DAT21__IPU1_DISP0_DAT_21,
-	MX6DL_PAD_DISP0_DAT22__IPU1_DISP0_DAT_22,
-	MX6DL_PAD_DISP0_DAT23__IPU1_DISP0_DAT_23,
-	MX6DL_PAD_GPIO_7__GPIO_1_7,		/* J7 - Display Connector GP */
-	MX6DL_PAD_GPIO_9__GPIO_1_9,
-};
-#endif
 void lcd_enable(void)
 {
 	char *s;
@@ -1209,7 +1121,6 @@ void lcd_enable(void)
 	/* LVDS panel CABC_EN1 */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
-	mxc_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
 	/*
 	 * Set LVDS panel CABC_EN0 to low to disable
 	 * CABC function. This function will turn backlight
@@ -1426,13 +1337,13 @@ void lcd_enable(void)
 
 	/*add by allenyao*/
 #if MIPI_DSI
-#if defined CONFIG_MX6Q
+	#if defined CONFIG_MX6Q
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_PLL3, 26400000);
-#elif defined CONFIG_MX6DL
+	#elif defined CONFIG_MX6DL
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_PLL3, 156454);
-#endif
+	#endif
 #else
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_LDB, 65000000);
@@ -1457,7 +1368,7 @@ void lcd_enable(void)
 #if defined CONFIG_MX6Q
 	power_on_and_reset_mipi_panel_6Q();
 #elif defined CONFIG_MX6DL
-	power_on_and_reset_mipi_panel_6DL();
+	#error "power_on_and_reset_mipi_panel:put me on MX6DQ"
 #endif
 	mipi_dsi_enable();
 #endif
@@ -1530,16 +1441,10 @@ void setup_splash_image(void)
 #endif
 		//memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
 				//fsl_bmp_reversed_600x400_size);
-#if 0
-		memcpy((char *)addr, (char *)fsl_bmp_reversed_mipi_480x800,
-			fsl_bmp_reversed_mipi_480x800_size);
-#else
 		memcpy((char *)addr, (char *)logo,
 				size);
-#endif
 	}
 }
-#endif
 #endif
 
 int board_init(void)

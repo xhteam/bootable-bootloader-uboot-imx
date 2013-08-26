@@ -142,13 +142,7 @@ static struct fb_videomode lvds_wvga = {
 	 0,
 };
 
-static struct fb_videomode mipi_dsi_bak = {	/*add by allenyao*/
-	"TRULY-WVGA", 64, 480, 800, 37880, 8, 8, 6, 6, 8, 6,
-	FB_SYNC_OE_LOW_ACT,
-	FB_VMODE_NONINTERLACED,
-	0,
-};
-
+#ifdef MIPI_DSI
 static struct fb_videomode mipi_dsi = {/*add by allenyao*/
 	 "TRULY-WVGA", 60, 540, 960, 32150/*ps*/,
 	 3, 3,
@@ -164,7 +158,7 @@ static struct mipi_lcd_config mipilcd_config = {//add by allenyao
 	.max_phy_clk    = 450,
 	.dpi_fmt		= MIPI_RGB888,
 };
-
+#endif
 vidinfo_t panel_info;
 #endif
 
@@ -1446,7 +1440,7 @@ u32 get_ddr_delay(struct fsl_esdhc_cfg *cfg)
 #endif
 
 /*add by allenyao*/
-void
+static void
 msleep(int count)
 {
 	int i;
@@ -1455,7 +1449,7 @@ msleep(int count)
 		udelay(1000);
 }
 
-void power_on_and_reset_mipi_panel_6Q(void)
+static void power_on_and_reset_mipi_panel_6Q(void)
 {
 	int reg;
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS1__GPIO_6_14);
@@ -1489,7 +1483,7 @@ void power_on_and_reset_mipi_panel_6Q(void)
 	msleep(200);
 }
 
-void power_on_and_reset_mipi_panel_6DL(void)
+static void power_on_and_reset_mipi_panel_6DL(void)
 {
 	int reg;
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS1__GPIO_6_14);
@@ -1523,7 +1517,7 @@ void power_on_and_reset_mipi_panel_6DL(void)
 	msleep(200);
 }
 
-void mipi_clk_enable(void)
+static void mipi_clk_enable(void)
 {
 	int reg;
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
@@ -1532,7 +1526,7 @@ void mipi_clk_enable(void)
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 }
 
-void dphy_write_control(unsigned long testcode, unsigned long testwrite)
+static void dphy_write_control(unsigned long testcode, unsigned long testwrite)
 {
 	writel(0x00000000, DSI_PHY_TST_CTRL0);
 	writel((0x00010000 | testcode), DSI_PHY_TST_CTRL1);
@@ -1543,7 +1537,7 @@ void dphy_write_control(unsigned long testcode, unsigned long testwrite)
 	writel(0x00000000, DSI_PHY_TST_CTRL0);
 }
 
-void mipi_dsi_enable_controller(void)
+static void mipi_dsi_enable_controller(void)
 {
 	printf("come to %s--allenyao\n",__func__);
 	int rd_data, timeout = 0;
@@ -1556,7 +1550,6 @@ void mipi_dsi_enable_controller(void)
 	writel(0x107, DSI_CLKMGR_CFG);
 	
 	#if MIPI_DSI
-	//add by allenyao
 	val = readl(DSI_DPI_CFG);
 	val &=0x00000000;
 	if (!(mipi_dsi.sync & FB_SYNC_VERT_HIGH_ACT))
@@ -1571,11 +1564,7 @@ void mipi_dsi_enable_controller(void)
 				<< DSI_DPI_CFG_COLORCODE_SHIFT;
 	val |= (mipilcd_config.virtual_ch & DSI_DPI_CFG_VID_MASK)
 				<< DSI_DPI_CFG_VID_SHIFT;
-	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
 	writel(val, DSI_DPI_CFG);
-	//writel(0xf4, DSI_DPI_CFG);
-	printf("come to %s-%d-allenyao\n",__func__,__LINE__);
-	//add by allenyao end
 	#else
 	writel(0xf4, DSI_DPI_CFG);//not use by allenyao
 	#endif
@@ -1673,7 +1662,7 @@ void mipi_dsi_enable_controller(void)
 	return;
 }
 
-void mipi_dsi_set_mode(int cmd_mode)
+static void mipi_dsi_set_mode(int cmd_mode)
 {
 	u32 reg;
 	if (cmd_mode) {
@@ -1694,9 +1683,8 @@ void mipi_dsi_set_mode(int cmd_mode)
 	}
 }
 
-void mipi_dsi_enable()
+static void mipi_dsi_enable()
 {
-	printf("come to %s--allenyao\n",__func__);
 	int err;
 
 	mipi_clk_enable();
@@ -1711,7 +1699,6 @@ void mipi_dsi_enable()
 
 	mipi_dsi_set_mode(0);
 
-	return;
 }
 
 
@@ -1793,7 +1780,6 @@ iomux_v3_cfg_t lcd_pads[] = {
 
 void lcd_enable(void)
 {
-	printf("come to %s--allenyao\n",__func__);
 	char *s;
 	int ret;
 	unsigned int reg;

@@ -145,17 +145,26 @@ do {								\
 #define MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM 0x13
 #define MIPI_DCS_SET_DISPLAY_ON 0x29
 
-void mipi_dsi_write_register(u32 reg, u32 val)
+
+static void
+msleep(int count)
+{
+	int i;
+	for (i = 0; i < count; i++)
+		udelay(1000);
+}
+
+static void mipi_dsi_write_register(u32 reg, u32 val)
 {
 	writel(val, MIPI_DSI_IPS_BASE_ADDR + reg);
 }
 
-void mipi_dsi_read_register(u32 reg, u32 *val)
+static void mipi_dsi_read_register(u32 reg, u32 *val)
 {
 	*val = readl(MIPI_DSI_IPS_BASE_ADDR + reg);
 }
 
-int mipi_dsi_pkt_write(u8 data_type, const u32 *buf, int len)
+static int mipi_dsi_pkt_write(u8 data_type, const u32 *buf, int len)
 {
 	u32 val;
 	u32 status = 0;
@@ -412,7 +421,6 @@ int MIPILCD_ICINIT(void)
 				buf, 0);
 	CHECK_RETCODE(err);
 #endif
-	printf("com to %s--init--allenyao\n",__func__);
 	//u32 buf[DSI_CMD_BUF_MAXSIZE];
 	//int err;
 
@@ -891,7 +899,6 @@ int MIPILCD_ICINIT(void)
 	CHECK_RETCODE(err);
 
 	//err = mipid_init_backlight(mipi_dsi);//not use by allenyao
-	printf("end of %s\n",__func__);
 	
 	return err;
 }
