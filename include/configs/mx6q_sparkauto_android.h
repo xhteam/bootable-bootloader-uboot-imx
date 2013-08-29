@@ -79,8 +79,9 @@
 #define CONFIG_FASTBOOT_VENDOR_ID      0x18d1
 #define CONFIG_FASTBOOT_PRODUCT_ID     0x0d02
 #define CONFIG_FASTBOOT_BCD_DEVICE     0x311
-#define CONFIG_FASTBOOT_MANUFACTURER_STR  "Freescale"
-#define CONFIG_FASTBOOT_PRODUCT_NAME_STR "i.mx6q sparkauto device"
+#define CONFIG_FASTBOOT_MANUFACTURER_STR  "Spark"
+#define CONFIG_FASTBOOT_PRODUCT_NAME_STR "sparkauto"
+//"i.mx6q sparkauto device"
 #define CONFIG_FASTBOOT_INTERFACE_STR	 "Android fastboot"
 #define CONFIG_FASTBOOT_CONFIGURATION_STR  "Android fastboot"
 #define CONFIG_FASTBOOT_SERIAL_NUM	"12345"
