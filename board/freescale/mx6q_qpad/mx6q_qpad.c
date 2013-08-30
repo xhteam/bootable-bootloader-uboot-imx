@@ -77,6 +77,7 @@
 
 #ifdef CONFIG_ANDROID_RECOVERY
 #include <recovery.h>
+#include <bootloader.h>
 #endif
 
 
@@ -892,6 +893,8 @@ msleep(int count)
 	for (i = 0; i < count; i++)
 		udelay(1000);
 }
+#if MIPI_DSI
+
 #warning "FIXME: change mipi-disp panel power_on_and_reset"
 static void power_on_and_reset_mipi_panel_6Q(void)
 {
@@ -1073,7 +1076,6 @@ static void mipi_dsi_set_mode(int cmd_mode)
 }
 static void mipi_dsi_enable()
 {
-	printf("come to %s--allenyao\n",__func__);
 	int err;
 	mipi_clk_enable();
 	mipi_dsi_enable_controller();
@@ -1085,6 +1087,8 @@ static void mipi_dsi_enable()
 	mipi_dsi_set_mode(0);
 	return;
 }
+#endif
+
 /*add by allenyao*/
 #ifdef CONFIG_LCD
 void lcd_enable(void)
@@ -1370,6 +1374,8 @@ void lcd_enable(void)
 #elif defined CONFIG_MX6DL
 	#error "power_on_and_reset_mipi_panel:put me on MX6DQ"
 #endif
+
+
 	mipi_dsi_enable();
 #endif
 	/*add by allenyao end*/
@@ -1493,25 +1499,49 @@ int board_init(void)
 
 int check_recovery_cmd_file(void)
 {
-	int button_pressed = 0;
-	int recovery_mode = 0;
+	int recovery_switch=0;
+	char *env;
 
-	recovery_mode = check_and_clean_recovery_flag();
-
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
-
-	gpio_direction_input(KEY_MENU_IO);
-	gpio_direction_input(KEY_HOME_IO);
-	gpio_direction_input(KEY_BACK_IO);
-
-	if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_HOME_IO)) { 
-		button_pressed = 1;
-		printf("Recovery key pressed\n");
+	env = getenv("android_recovery_switch");
+	if (!strcmp(env, "1")) {
+		printf("Env recovery detected!\nEnter recovery mode!\n");
+		recovery_switch++;
+	}
+	if(!recovery_switch){
+		if(check_and_clean_recovery_flag()){
+			printf("Linux recovery detected!\nEnter recovery mode!\n");
+			recovery_switch++;
+		}
 	}
 
-	return recovery_mode || button_pressed;
+	if(!recovery_switch){
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
+
+		gpio_direction_input(KEY_MENU_IO);
+		gpio_direction_input(KEY_HOME_IO);
+		gpio_direction_input(KEY_BACK_IO);
+
+		if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_HOME_IO)) {
+				printf("Key recovery detected!\nEnter recovery mode!\n");
+				recovery_switch++;
+		}
+	}
+	if(!recovery_switch){
+		struct bootloader_message* boot = malloc(sizeof(struct bootloader_message));
+		if(boot){
+			memset(boot, 0, sizeof(boot));
+			get_bootloader_message(boot);	// this may fail, leaving a zeroed structure
+			if(!memcmp(boot->command,"boot-recovery",13)){
+			printf("BCB recovery detected!\nEnter recovery mode!\n");
+			recovery_switch++;
+			}
+			free(boot);
+		}
+	}
+	
+	return recovery_switch;
 }
 #endif
 

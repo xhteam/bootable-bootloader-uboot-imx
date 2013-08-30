@@ -86,6 +86,7 @@
 
 #ifdef CONFIG_ANDROID_RECOVERY
 #include <recovery.h>
+#include <bootloader.h>
 #endif
 
 #ifdef CONFIG_DWC_AHSATA
@@ -1857,22 +1858,46 @@ int board_init(void)
 
 int check_recovery_cmd_file(void)
 {
-	int button_pressed = 0;
-	int recovery_mode = 0;
+	int recovery_switch=0;
+	char *env;
 
-	recovery_mode = check_and_clean_recovery_flag();
-
-	/* Check Recovery Combo Button press or not. */
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
-
-	gpio_direction_input(GPIO_VOL_DN_KEY);
-
-	if (gpio_get_value(GPIO_VOL_DN_KEY) == 0) { /* VOL_DN key is low assert */
-		button_pressed = 1;
-		printf("Recovery key pressed\n");
+	env = getenv("android_recovery_switch");
+	if (!strcmp(env, "1")) {
+		printf("Env recovery detected!\nEnter recovery mode!\n");
+		recovery_switch++;
+	}
+	if(!recovery_switch){
+		if(check_and_clean_recovery_flag()){
+			printf("Linux recovery detected!\nEnter recovery mode!\n");
+			recovery_switch++;
+		}
 	}
 
-	return recovery_mode || button_pressed;
+	if(!recovery_switch){
+		/* Check Recovery Combo Button press or not. */
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
+
+		gpio_direction_input(GPIO_VOL_DN_KEY);
+
+		if (gpio_get_value(GPIO_VOL_DN_KEY) == 0) { /* VOL_DN key is low assert */
+			printf("Key recovery detected!\nEnter recovery mode!\n");
+			recovery_switch++;
+		}
+	}
+	if(!recovery_switch){
+		struct bootloader_message* boot = malloc(sizeof(struct bootloader_message));
+		if(boot){
+			memset(boot, 0, sizeof(boot));
+			get_bootloader_message(boot);	// this may fail, leaving a zeroed structure
+			printf("boot->command=%s\n",boot->command);
+			if(!memcmp(boot->command,"boot-recovery",13)){
+				printf("BCB recovery detected!\nEnter recovery mode!\n");
+				recovery_switch++;
+			}
+			free(boot);
+		}
+	}
+	return recovery_switch;
 }
 #endif
 
