@@ -90,10 +90,11 @@
 //#define CONFIG_CFB_CONSOLE	1
 //add by allenyao end
 
-#define CONFIG_AUTOUPDATE
+#define CONFIG_AUTOUPDATER
 #define CONFIG_AUTOUPDATER_SEQUENCER \
-	{"mmcstart;mmc sw_dev 0;mmc rescan","mmc",0}, \
 	{"usb start","usb",0}, 
+
+//	{"mmcstart;mmc sw_dev 0;mmc rescan","mmc",0}, \
 
 /*
  *Enable MIPI panel in uboot

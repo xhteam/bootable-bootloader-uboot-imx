@@ -23,6 +23,7 @@
 #include <common.h>
 #include <asm/io.h>
 #include <asm/arch/mx6.h>
+#include <asm/arch/crm_regs.h>
 #include <asm/arch/mx6_pins.h>
 #if defined(CONFIG_SECURE_BOOT)
 #include <asm/arch/mx6_secure.h>
@@ -100,6 +101,10 @@ static enum boot_device boot_dev;
 #define GPIO_VOL_DN_KEY IMX_GPIO_NR(1, 5)
 #define USB_OTG_PWR IMX_GPIO_NR(3, 22)
 #define USB_H1_POWER IMX_GPIO_NR(1, 29)
+
+#define USB_HUB_PWR		IMX_GPIO_NR(1, 14)
+#define USB_HUB_RESET	IMX_GPIO_NR(7, 13)
+
 
 extern int sata_curr_device;
 
@@ -2106,6 +2111,7 @@ int checkboard(void)
 void udc_pins_setting(void)
 {
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_RX_ER__ANATOP_USBOTG_ID));
+	#if 0
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D22__GPIO_3_22));
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_ENET_TXD1__GPIO_1_29));
 
@@ -2113,6 +2119,7 @@ void udc_pins_setting(void)
 	gpio_direction_output(USB_OTG_PWR, 0);
 	/* USB_H1_POWER = 1 */
 	gpio_direction_output(USB_H1_POWER, 1);
+	#endif
 
 	mxc_iomux_set_gpr_register(1, 13, 1, 0);
 
@@ -2139,4 +2146,32 @@ int misc_init_r (void)
 	
 	return 0;
 }
+
+#ifdef CONFIG_USB_EHCI_MX6
+int board_ehci_hcd_init(int port){
+	iomux_v3_cfg_t usb_pads[] = {
+		MX6Q_PAD_GPIO_4__GPIO_1_4,
+		MX6Q_PAD_GPIO_18__GPIO_7_13,
+	};
+	u32 reg;
+	//init iomux pads
+	mxc_iomux_v3_setup_multiple_pads(usb_pads,ARRAY_SIZE(usb_pads));
+
+	//enable hub power
+	gpio_direction_output(USB_HUB_PWR, 1);
+	gpio_direction_output(USB_HUB_RESET, 0);
+	udelay(5000);
+	gpio_direction_output(USB_HUB_RESET, 1);
+	
+	
+	//enable ehci clock
+	reg = readl(CCM_BASE_ADDR+CLKCTL_CCGR6);
+    reg |= MXC_CCM_CCGR_CG_MASK << MXC_CCM_CCGR0_CG0_OFFSET;
+	writel(reg, CCM_BASE_ADDR+CLKCTL_CCGR6);
+	
+	udelay(1000);
+	return 0;
+}
+
+#endif
 

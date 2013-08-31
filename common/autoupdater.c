@@ -8,8 +8,11 @@
 #define MAX_BUFFER_SIZE             ( 4096 )
 #define MAX_CMD_LEN                 ( 256 )
 
+#ifndef CONFIG_AUTOUPDATE_ROOT
+#define CONFIG_AUTOUPDATE_ROOT	"/autoupdate/"
+#endif
 #ifndef CONFIG_AUTOUPDATER_FILE_NAME
-#define CONFIG_AUTOUPDATER_FILE_NAME "/autoupdate/update.txt"
+#define CONFIG_AUTOUPDATER_FILE_NAME CONFIG_AUTOUPDATE_ROOT"update.txt"
 #endif
 #ifndef CONFIG_AUTOUPDATER_SEQUENCER
 #define CONFIG_AUTOUPDATER_SEQUENCER \
@@ -184,6 +187,92 @@ U_BOOT_CMD(
 	"autoupdate - run autoupdater\n",
 	"Read"
 	CONFIG_AUTOUPDATER_FILE_NAME "from usb/sd disk then update system"
+);
+#if 0
+#include <zipfile/zipfile.h>
+
+static void *unzip_file(zipfile_t zip, const char *name, unsigned *sz)
+{
+    void *data;
+    zipentry_t entry;
+    unsigned datasz;
+
+    entry = lookup_zipentry(zip, name);
+    if (entry == NULL) {
+        fprintf(stderr, "archive does not contain '%s'\n", name);
+        return 0;
+    }
+
+    *sz = get_zipentry_size(entry);
+
+    datasz = *sz * 1.001;
+    data = malloc(datasz);
+
+    if(data == 0) {
+        fprintf(stderr, "failed to allocate %d bytes\n", *sz);
+        return 0;
+    }
+
+    if (decompress_zipentry(entry, data, datasz)) {
+        fprintf(stderr, "failed to unzip '%s' from archive\n", name);
+        free(data);
+        return 0;
+    }
+
+    return data;
+}
+
+static void *load_file(const char *fn, unsigned *_sz)
+{
+    char *data;
+    int sz;
+    int fd;
+    int errno_tmp;
+
+    data = 0;
+    fd = open(fn, O_RDONLY);
+    if(fd < 0) return 0;
+
+    sz = lseek(fd, 0, SEEK_END);
+    if(sz < 0) goto oops;
+
+    if(lseek(fd, 0, SEEK_SET) != 0) goto oops;
+
+    data = (char*) malloc(sz);
+    if(data == 0) goto oops;
+
+    if(read(fd, data, sz) != sz) goto oops;
+    close(fd);
+
+    if(_sz) *_sz = sz;
+    return data;
+
+oops:
+    errno_tmp = errno;
+    close(fd);
+    if(data != 0) free(data);
+    errno = errno_tmp;
+    return 0;
+}
+
+#endif
+/*
+ * If pkg name supplied,use this package to update
+ * If pkg name not supplie,search all zip files in /autoupdate then verify each zipfile (board.prop)
+*/
+static int do_update_package( cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[] ){
+	char* pkg=NULL;
+	if(argc>1)
+		pkg=argv[1];
+	printf("autoupdate package %s",pkg?pkg:"");
+
+	
+	return 0;
+}
+U_BOOT_CMD(
+	updatepackage,	2,	1,	do_update_package,
+	"updatepackage - run autoupdater\n",
+	"updatepackage [package] -- run package update from usb/sd disk"
 );
 
 int inline __autoupdate_mode_detect (void) {return 0;}

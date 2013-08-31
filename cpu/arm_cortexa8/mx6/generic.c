@@ -25,7 +25,7 @@
 #include <asm/arch/regs-anadig.h>
 #include <asm/errno.h>
 #include <asm/io.h>
-#include "crm_regs.h"
+#include <asm/arch/crm_regs.h>
 #ifdef CONFIG_CMD_CLOCK
 #include <asm/clock.h>
 #endif
@@ -1235,7 +1235,7 @@ int fastboot_check_and_clean_flag(void)
 }
 #endif
 
-#ifdef CONFIG_AUTOUPDATE
+#ifdef CONFIG_AUTOUPDATER
 #define ANDROID_AUTOUPDATE_BOOT  (1 << 9)
 /* check if the autoupdate bit is set by kernel, it can be set by kernel
  * issue a command '# reboot autoupdate' */
