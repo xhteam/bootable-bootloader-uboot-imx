@@ -1889,7 +1889,6 @@ int check_recovery_cmd_file(void)
 		if(boot){
 			memset(boot, 0, sizeof(boot));
 			get_bootloader_message(boot);	// this may fail, leaving a zeroed structure
-			printf("boot->command=%s\n",boot->command);
 			if(!memcmp(boot->command,"boot-recovery",13)){
 				printf("BCB recovery detected!\nEnter recovery mode!\n");
 				recovery_switch++;
