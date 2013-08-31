@@ -1253,7 +1253,6 @@ int autoupdate_check_and_clean_flag(void)
 		reg &= ~ANDROID_AUTOUPDATE_BOOT;
 		writel(reg, SNVS_BASE_ADDR + SNVS_LPGPR);
 	}
-
 	return flag_set;
 }
 #endif

@@ -489,7 +489,7 @@ extern void davinci_eth_set_mac_addr (const u_int8_t *addr);
 	reset_phy();
 #endif
 #endif
-#ifdef CONFIG_AUTOUPDATE
+#ifdef CONFIG_AUTOUPDATER
 	check_autoupdate_mode();	
 #endif
 #ifdef CONFIG_FASTBOOT

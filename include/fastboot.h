@@ -314,6 +314,7 @@ void fastboot_flash_add_ptn(fastboot_ptentry *ptn);
 fastboot_ptentry *fastboot_flash_find_ptn(const char *name);
 fastboot_ptentry *fastboot_flash_get_ptn(unsigned n);
 unsigned int fastboot_flash_get_ptn_count(void);
+void fastboot_flash_reset_ptn(void);
 void fastboot_flash_dump_ptn(void);
 
 int fastboot_flash_init(void);

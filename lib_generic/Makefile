@@ -45,7 +45,8 @@ COBJS-$(CONFIG_SHA256) += sha256.o
 COBJS-y += string.o
 COBJS-y	+= strmhz.o
 COBJS-y += vsprintf.o
-COBJS-y += zlib.o
+COBJS-y += zlib.o 
+COBJS-$(CONFIG_AUTOUPDATER)	+= zipfile.o centraldir.o
 COBJS-$(CONFIG_RBTREE)	+= rbtree.o
 
 COBJS	:= $(COBJS-y)

@@ -1888,6 +1888,7 @@ unsigned int fastboot_flash_get_ptn_count(void)
 {
 	return pcount;
 }
+void fastboot_flash_reset_ptn(void){pcount=0;}
 
 int fastboot_write_storage(u8 *partition_name, u32 write_len)
 {
