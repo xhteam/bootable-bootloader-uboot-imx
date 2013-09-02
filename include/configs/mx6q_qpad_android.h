@@ -72,6 +72,7 @@
 		"serialnumber=1234567890"			\
 		"netdev=eth0\0"						\
 		"ethprime=FEC0\0"					\
+		"password=9dd694e7e648d04b019c56ae7a58f01400000000000000000000000000000000\0" \
 		"fastboot_dev=mmc3\0"					\
 		"bootcmd=booti mmc3\0"					\
 		"splashimage=0x30000000\0"				\
@@ -84,8 +85,6 @@
 #define CONFIG_MISC_INIT_R
 #define CONFIG_MD5
 #define CONFIG_AUTOBOOT_KEYED	1
-#define CONFIG_AUTOBOOT_PROMPT 	\
-	"Autobooting in %d seconds\n", bootdelay
 #define CONFIG_AUTOBOOT_DELAY_STR "\x1b\x1b"
 //#define CONFIG_CFB_CONSOLE	1
 //add by allenyao end

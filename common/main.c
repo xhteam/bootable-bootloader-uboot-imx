@@ -100,7 +100,7 @@ extern void mdm_init(void); /* defined in board.c */
 static __inline__ int abortboot(int bootdelay)
 {
 	int abort = 0;
-	uint64_t etime = endtick(bootdelay);
+	uint64_t etime = bootdelay?endtick(bootdelay):(get_ticks()+(get_tbclk()/4));
 	struct {
 		char* str;
 		u_int len;

@@ -2179,22 +2179,6 @@ void udc_pins_setting(void)
 
 int misc_init_r (void)
 {
-	char *env;
-
-	env = getenv("password");
-	if(!env){
-		setenv("password","9dd694e7e648d04b019c56ae7a58f01400000000000000000000000000000000"/*x1bx1b*//*"fc5e038d38a57032085441e7fe7010b000000000000000000000000000000000" helloworld*/);
-	}    
-
-	env = getenv("bootdelay");
-	if (1){ 
-		int bootdelay = (int)simple_strtol(env, NULL, 10);
-		char buf[64];
-		bootdelay = CONFIG_BOOTDELAY;
-		sprintf(buf,"%d",bootdelay);
-		setenv("bootdelay", buf);
-	}
-	
 	return 0;
 }
 
