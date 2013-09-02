@@ -1569,7 +1569,7 @@ int fastboot_mode_detect(void){
 
 #endif
 
-#ifdef CONFIG_AUTOUPDATE
+#ifdef CONFIG_AUTOUPDATER
 int autoupdate_mode_detect(void){
 	int button_pressed = 0;
 
