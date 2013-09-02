@@ -1604,6 +1604,39 @@ int board_late_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_ANDROID_BOOTMODE
+enum {
+ eBootModeNormal=0,
+ eBootModeRecovery,
+ eBootModeCharger,
+ eBootModeFastboot,
+ eBootModeAutoupdate,
+ eBootModeFactory,
+ eBootModeMax,
+};
+static int android_bootmode=eBootModeNormal;
+char* append_commandline_extra(char* cmdline){
+	const char* bootmode_cmdline[] ={
+		"",
+		"",
+		" androidboot.mode=charger",
+		"",
+		"",
+		" androidboot.mode=factory",
+	};
+	if(android_bootmode<eBootModeMax&&strlen(bootmode_cmdline[android_bootmode])){
+		char* newcmdline = malloc(strlen(cmdline)+strlen(bootmode_cmdline[android_bootmode])+1);
+		printf("bootmode=%d,extra cmdline[%s]\n",android_bootmode,bootmode_cmdline[android_bootmode]);
+		if(newcmdline){
+			strcpy(newcmdline,cmdline);
+			strcat(newcmdline,bootmode_cmdline[android_bootmode]);
+			return newcmdline;
+		}
+	}
+	return cmdline;
+}
+#endif
+
 
 
 static const char* board_identity(void){
@@ -1720,6 +1753,23 @@ int checkboard(void)
 	if (check_hab_enable() == 1)
 		get_hab_status();
 #endif
+
+	/*
+	 * FIXME,add more robust feature here
+	 *
+	 * 1.Check if DC in
+	 * 2.Check if battery level is low
+       */
+
+	#ifdef CONFIG_ANDROID_BOOTMODE
+
+	#ifdef CONFIG_CHARGER_OFF
+	//check if we should enter charger mode
+	if(charger_check_and_clean_flag()){
+		android_bootmode = eBootModeCharger;
+	}
+	#endif
+	#endif
 
 	return 0;
 }

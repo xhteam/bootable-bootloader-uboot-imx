@@ -1257,6 +1257,29 @@ int autoupdate_check_and_clean_flag(void)
 }
 #endif
 
+#ifdef CONFIG_CHARGER_OFF
+#define ANDROID_CHARGER_BOOT  (1 << 10)
+/* check if the charger bit is set by kernel, it can be set by kernel
+ * issue a command '# reboot charger' */
+int charger_check_and_clean_flag(void)
+{
+	int flag_set = 0;
+	u32 reg;
+
+	reg = readl(SNVS_BASE_ADDR + SNVS_LPGPR);
+
+	flag_set = !!(reg & ANDROID_CHARGER_BOOT);
+
+	/* clean it in case looping infinite here.... */
+	if (flag_set) {
+		reg &= ~ANDROID_CHARGER_BOOT;
+		writel(reg, SNVS_BASE_ADDR + SNVS_LPGPR);
+	}
+	return flag_set;
+}
+#endif
+
+
 
 #ifdef CONFIG_CMD_IMX_DOWNLOAD_MODE
 #define PERSIST_WATCHDOG_RESET_BOOT		(0x10000000)

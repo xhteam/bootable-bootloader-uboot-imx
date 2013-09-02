@@ -157,6 +157,9 @@
 	{"usb start","usb",0}, 
 
 
+#define CONFIG_ANDROID_BOOTMODE
+#define CONFIG_CHARGER_OFF
+
 
 #endif
 

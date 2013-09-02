@@ -134,6 +134,11 @@ int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
 	return 1;
 }
 
+#ifdef CONFIG_ANDROID_BOOTMODE
+char* __append_commandline_extra(char* cmdline) {return cmdline;}
+char* append_commandline_extra(char* cmdline) __attribute__((weak, alias("__append_commandline_extra")));
+
+#endif
 void do_booti_linux (boot_img_hdr *hdr)
 {
 	ulong initrd_start, initrd_end;
@@ -145,6 +150,11 @@ void do_booti_linux (boot_img_hdr *hdr)
 	/* If no bootargs env, just use hdr command line */
 	if (!commandline)
 		commandline = (char *)hdr->cmdline;
+
+	#ifdef CONFIG_ANDROID_BOOTMODE
+	//append android boot mode
+	commandline = append_commandline_extra(commandline);
+	#endif
 
 	/* XXX: in production, you should always use boot.img 's cmdline !!! */
 	printf("kernel cmdline: \n");

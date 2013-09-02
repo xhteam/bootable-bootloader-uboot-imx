@@ -101,4 +101,8 @@
 */
 #define MIPI_DSI	1
 
+#define CONFIG_ANDROID_BOOTMODE
+#define CONFIG_CHARGER_OFF
+
+
 #endif
