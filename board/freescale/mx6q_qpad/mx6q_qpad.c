@@ -88,9 +88,28 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static enum boot_device boot_dev;
 
+#define ENABLE_KEYPAD_SHORTCUT
+#ifndef NEW_PAD_CTRL
+#define NEW_PAD_CTRL(cfg, pad)	(((cfg) & ~MUX_PAD_CTRL_MASK) | \
+		MUX_PAD_CTRL(pad))
+#endif
+
+#define MX6_KEY_PAD_CTRL (PAD_CTL_PKE | PAD_CTL_PUE  |		\
+		PAD_CTL_PUS_100K_UP | PAD_CTL_SPEED_MED |		\
+		PAD_CTL_DSE_40ohm   | PAD_CTL_SRE_SLOW  | PAD_CTL_HYS)
+
+
 #define KEY_MENU_IO IMX_GPIO_NR(3, 9) /*KEY1*/
 #define KEY_HOME_IO IMX_GPIO_NR(3, 10) /*KEY2*/
 #define KEY_BACK_IO IMX_GPIO_NR(3, 11) /*KEY3*/
+
+#define BOARD_REV_IO1 IMX_GPIO_NR(1, 2)
+#define BOARD_REV_IO2 IMX_GPIO_NR(1, 2)
+#define BOARD_REV_IO3 IMX_GPIO_NR(1, 2)
+
+#define BOARD_ID_IO1 IMX_GPIO_NR(1, 7)
+#define BOARD_ID_IO2 IMX_GPIO_NR(7, 12)
+
 
 #define USB_OTG_PWR IMX_GPIO_NR(3, 22)
 
@@ -899,29 +918,41 @@ msleep(int count)
 static void power_on_and_reset_mipi_panel_6Q(void)
 {
 	int reg;
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS1__GPIO_6_14);
+	//LCD PWR
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_D6__GPIO_2_6);
+	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 6);
+	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
+	reg = readl(GPIO2_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 6);
+	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
+
+	//LCD_RST_B
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 14);
+	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 14);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS0__GPIO_6_11);
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 11);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 11);
+	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 	udelay(10);
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg &= ~(1 << 11);
+	reg &= ~(1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 	udelay(50);
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 11);
+	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 	msleep(200);
+
+	//LCD_BL_PWR_EN	
+	mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW4__GPIO_4_15);
+	reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
+	reg |= (1 << 15);
+	writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
+	reg = readl(GPIO4_BASE_ADDR + GPIO_DR);
+	reg |= (1 << 15);
+	writel(reg, GPIO4_BASE_ADDR + GPIO_DR);
 }
 static void mipi_clk_enable(void)
 {
@@ -1369,9 +1400,9 @@ void lcd_enable(void)
 		reg &= ~(0x0000030);
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
-#if defined CONFIG_MX6Q
+#if defined(CONFIG_MX6Q)
 	power_on_and_reset_mipi_panel_6Q();
-#elif defined CONFIG_MX6DL
+#elif defined(CONFIG_MX6DL)
 	#error "power_on_and_reset_mipi_panel:put me on MX6DQ"
 #endif
 
@@ -1514,20 +1545,26 @@ int check_recovery_cmd_file(void)
 		}
 	}
 
+	#ifdef ENABLE_KEYPAD_SHORTCUT
 	if(!recovery_switch){
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11),MX6_KEY_PAD_CTRL));
 
 		gpio_direction_input(KEY_MENU_IO);
 		gpio_direction_input(KEY_HOME_IO);
 		gpio_direction_input(KEY_BACK_IO);
 
 		if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_HOME_IO)) {
-				printf("Key recovery detected!\nEnter recovery mode!\n");
-				recovery_switch++;
+				if(!gpio_get_value(KEY_BACK_IO)){
+					printf("keypad not connected??\n");
+				}else {
+					printf("Key recovery detected!\nEnter recovery mode!\n");
+					recovery_switch++;
+				}
 		}
 	}
+	#endif
 	if(!recovery_switch){
 		struct bootloader_message* boot = malloc(sizeof(struct bootloader_message));
 		if(boot){
@@ -1549,18 +1586,25 @@ int check_recovery_cmd_file(void)
 int fastboot_mode_detect(void){
 	int button_pressed = 0;
 
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
+	#warning FIXME:internal pull up control not work?
+	#ifdef ENABLE_KEYPAD_SHORTCUT
+	mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9),MX6_KEY_PAD_CTRL));
+	mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10),MX6_KEY_PAD_CTRL));
+	mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11),MX6_KEY_PAD_CTRL));
 
 	gpio_direction_input(KEY_MENU_IO);
 	gpio_direction_input(KEY_HOME_IO);
 	gpio_direction_input(KEY_BACK_IO);
 
 	if (!gpio_get_value(KEY_HOME_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
-		button_pressed = 1;
-		printf("Fastboot key pressed\n");
+		if(!gpio_get_value(KEY_MENU_IO)){
+			printf("keypad not connected??\n");
+		}else {
+			button_pressed = 1;
+			printf("Fastboot key pressed\n");
+		}
 	}
+	#endif
 
 
 	return button_pressed;
@@ -1573,6 +1617,7 @@ int fastboot_mode_detect(void){
 int autoupdate_mode_detect(void){
 	int button_pressed = 0;
 
+	#ifdef ENABLE_KEYPAD_SHORTCUT
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9));	
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10));
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_DA11__GPIO_3_11));
@@ -1582,10 +1627,14 @@ int autoupdate_mode_detect(void){
 	gpio_direction_input(KEY_BACK_IO);
 
 	if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
-		button_pressed = 1;
-		printf("Autoupdate key pressed\n");
+		if(!gpio_get_value(KEY_HOME_IO)){
+			printf("keypad not connected??\n");
+		}else {
+			button_pressed = 1;
+			printf("Autoupdate key pressed\n");
+		}
 	}
-
+	#endif
 
 	return button_pressed;
 	
@@ -1660,6 +1709,12 @@ static const char* board_identity(void){
 	//check board type
 	if(!id){
 		//assign id per hardware GPIO settings
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_7__GPIO_1_7));
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_17__GPIO_7_12));
+		gpio_direction_input(BOARD_ID_IO1);
+		gpio_direction_input(BOARD_ID_IO2);
+		id=(gpio_get_value(BOARD_ID_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
+		id+=0xb;
 	}
 	if(id>0xB)
 		id=0;
@@ -1683,6 +1738,13 @@ static const char* board_revision(void){
 	if(!id){
 		//assign revision per hardware GPIO settings
 		rev = 0;
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_2__GPIO_1_2));
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4));
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
+		gpio_direction_input(BOARD_REV_IO1);
+		gpio_direction_input(BOARD_REV_IO2);
+		gpio_direction_input(BOARD_REV_IO3);
+		rev=(gpio_get_value(BOARD_REV_IO3)<<2)+(gpio_get_value(BOARD_REV_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
 	}
 	if(rev>0x4)
 		rev=5;
