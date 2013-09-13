@@ -95,7 +95,7 @@ static enum boot_device boot_dev;
 #endif
 
 #define MX6_KEY_PAD_CTRL (PAD_CTL_PKE | PAD_CTL_PUE  |		\
-		PAD_CTL_PUS_100K_UP | PAD_CTL_SPEED_MED |		\
+		PAD_CTL_PUS_22K_UP | PAD_CTL_SPEED_MED |		\
 		PAD_CTL_DSE_40ohm   | PAD_CTL_SRE_SLOW  | PAD_CTL_HYS)
 
 

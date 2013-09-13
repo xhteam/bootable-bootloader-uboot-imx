@@ -93,7 +93,7 @@
 #define CONFIG_AUTOUPDATER_SEQUENCER \
 	{"usb start","usb",0}, 
 
-//	{"mmcstart;mmc sw_dev 0;mmc rescan","mmc",0}, \
+//	{"mmcstart;mmc sw_dev 0;mmc rescan","mmc",0}, 
 
 /*
  *Enable MIPI panel in uboot
