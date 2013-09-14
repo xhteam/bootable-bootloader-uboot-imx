@@ -88,7 +88,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static enum boot_device boot_dev;
 
-#define ENABLE_KEYPAD_SHORTCUT
+//#define ENABLE_KEYPAD_SHORTCUT
 #ifndef NEW_PAD_CTRL
 #define NEW_PAD_CTRL(cfg, pad)	(((cfg) & ~MUX_PAD_CTRL_MASK) | \
 		MUX_PAD_CTRL(pad))
@@ -660,7 +660,7 @@ int i2c_bus_recovery(void)
 			if (mx6q_i2c_gpio_check_sda(bus) == 1)
 				printf("I2C%d Recovery success\n", bus);
 			else {
-				printf("I2C%d Recovery failed, I2C1 SDA still low!!!\n", bus);
+				printf("I2C%d Recovery failed, I2C SDA still low!!!\n", bus);
 				result |= 1 << bus;
 			}
 		}
@@ -724,7 +724,21 @@ static int setup_pmic_voltages(void)
 			printf("Set VGEN5 error!\n");
 			return -1;
 		}
+
+		/*decrease VGEN6 to 2.8V*/
+		if (i2c_read(0x8, 0x71, 1, &value, 1)) {
+			printf("Read VGEN6 error!\n");
+			return -1;
+		}
+		value &= ~0xf;
+		value |= 0xa;
+		if (i2c_write(0x8, 0x71, 1, &value, 1)) {
+			printf("Set VGEN6 error!\n");
+			return -1;
+		}
 	}
+
+	return 0;
 }
 #endif
 
@@ -918,13 +932,15 @@ msleep(int count)
 static void power_on_and_reset_mipi_panel_6Q(void)
 {
 	int reg;
+
+	printf("power_on_and_reset_mipi_panel_6Q\n");
 	//LCD PWR
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_D6__GPIO_2_6);
 	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg = readl(GPIO2_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 6);
+	reg &= ~(1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
 
 	//LCD_RST_B
@@ -1031,7 +1047,6 @@ static void mipi_dsi_enable_controller(void)
 				mipi_dsi.hsync_len + mipi_dsi.xres) * mipi_dsi.pixclock
 				/ NS2PS_RATIO / lane_byte_clk_period)
 				<< DSI_TME_LINE_CFG_HLINE_TIME_SHIFT;
-	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
 	writel(val , DSI_TMR_LINE_CFG);
 	/*add by allenyao end*/
 	#else
@@ -1047,7 +1062,6 @@ static void mipi_dsi_enable_controller(void)
 				<< DSI_VTIMING_CFG_VFP_LINES_SHIFT);
 	val |= ((mipi_dsi.yres & DSI_VTIMING_CFG_V_ACT_LINES_MASK)
 				<< DSI_VTIMING_CFG_V_ACT_LINES_SHIFT);
-	printf("come to %s-%d-0x%x-allenyao\n",__func__,__LINE__,val);
 	writel(val, DSI_VTIMING_CFG);
 	/*add by allenyao end*/
 	#else
@@ -1108,15 +1122,20 @@ static void mipi_dsi_set_mode(int cmd_mode)
 static void mipi_dsi_enable()
 {
 	int err;
+	msleep(5);
 	mipi_clk_enable();
-	mipi_dsi_enable_controller();
+	msleep(5);
+	mipi_dsi_enable_controller();	
+    msleep(5);
 	err = MIPILCD_ICINIT();
 	if (err < 0) {
 		printf("lcd init failed\n");
 		return;
 	}
+	
+    msleep(5);
 	mipi_dsi_set_mode(0);
-	return;
+
 }
 #endif
 
@@ -1131,6 +1150,16 @@ void lcd_enable(void)
 	s = getenv("lvds_num");
 	di = simple_strtol(s, NULL, 10);
 
+	/*Move i2c and pmic setup voltages to here because MIPI lcd require VGEN6 decrease 2.8V from 3.3V*/
+	#ifdef CONFIG_I2C_MXC
+	setup_i2c(CONFIG_SYS_I2C_PORT);
+	i2c_bus_recovery();
+	ret = setup_pmic_voltages();
+	if (ret){
+		printf("setup pmic voltagte error\n");	
+	}
+	#endif
+
 	/*
 	* hw_rev 2: IPUV3DEX
 	* hw_rev 3: IPUV3M
@@ -1144,44 +1173,11 @@ void lcd_enable(void)
 #if defined CONFIG_MX6Q
 	/* PWM backlight */
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_SD1_DAT3__PWM1_PWMO);
-	/* LVDS panel CABC_EN0 */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS2__GPIO_6_15);
-	/* LVDS panel CABC_EN1 */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
 #elif defined CONFIG_MX6DL
 	/* PWM backlight */
 	mxc_iomux_v3_setup_pad(MX6DL_PAD_SD1_DAT3__PWM1_PWMO);
-	/* LVDS panel CABC_EN0 */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS2__GPIO_6_15);
-	/* LVDS panel CABC_EN1 */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_CS3__GPIO_6_16);
 #endif
-	/*
-	 * Set LVDS panel CABC_EN0 to low to disable
-	 * CABC function. This function will turn backlight
-	 * automatically according to display content, so
-	 * simply disable it to get rid of annoying unstable
-	 * backlight phenomena.
-	 */
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 15);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
 
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg &= ~(1 << 15);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-
-	/*
-	 * Set LVDS panel CABC_EN1 to low to disable
-	 * CABC function.
-	 */
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
-
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg &= ~(1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 
 	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk/mipi_clk. */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
@@ -1403,10 +1399,10 @@ void lcd_enable(void)
 #if defined(CONFIG_MX6Q)
 	power_on_and_reset_mipi_panel_6Q();
 #elif defined(CONFIG_MX6DL)
-	#error "power_on_and_reset_mipi_panel:put me on MX6DQ"
+	#error "power_on_and_reset_mipi_panel:put me on MX6DL"
 #endif
 
-
+	
 	mipi_dsi_enable();
 #endif
 	/*add by allenyao end*/
@@ -1448,6 +1444,50 @@ void panel_info_init(void)
 #endif
 
 #ifdef CONFIG_SPLASH_SCREEN
+static void fill_buffer_rgb888pack(void* p, unsigned int w, unsigned int h, unsigned int wc, unsigned int hc, unsigned int c1, unsigned int c2)
+{
+    unsigned int i, j;
+    unsigned char * pp;
+
+    pp = p;
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            *pp++ = 0xff;
+            *pp++ = 0x00;
+            *pp++ = 0x00;
+        }
+    }
+}
+
+static void fill_buffer_rgb565(void* p, unsigned int w, unsigned int h, unsigned int wc, unsigned int hc, unsigned int c1, unsigned int c2)
+{
+    unsigned int i, j;
+    unsigned short * pp;
+
+    pp = p;
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            *pp++ = ((((i/wc)+(j/hc))%2 == 0)?((unsigned short)c1):((unsigned short)c2));
+        }
+    }
+}
+
+enum{
+	ePixelFormatInvalid,
+	ePixelFormatRGB565,
+	ePixelFormatRGB888Pack,
+};
+static void draw_pattern(void* base,int w,int h,int format){
+    if(ePixelFormatRGB565==format)
+        fill_buffer_rgb565(base, w, h, 20, 20, 0xFFFF, 0x0000);
+    else if(ePixelFormatRGB888Pack==format)
+        fill_buffer_rgb888pack_checks(base, w, h, 20, 20, 0xFFFF, 0x0000);
+}
+
 void setup_splash_image(void)
 {
 	char *s;
@@ -1476,10 +1516,10 @@ void setup_splash_image(void)
 		addr = ioremap_nocache(iomem_to_phys(addr),
 				fsl_bmp_reversed_600x400_size);
 #endif
-		//memcpy((char *)addr, (char *)fsl_bmp_reversed_600x400,
-				//fsl_bmp_reversed_600x400_size);
-		memcpy((char *)addr, (char *)logo,
-				size);
+		if(!size)
+			draw_pattern(addr,panel_info.vl_col,panel_info.vl_row,ePixelFormatRGB565);
+		else
+			memcpy((char *)addr, (char *)logo,size);
 	}
 }
 #endif
@@ -1508,6 +1548,7 @@ int board_init(void)
 	gd->bd->bi_boot_params = PHYS_SDRAM_1 + 0x100;
 
 	setup_uart();
+
 
 #ifdef CONFIG_VIDEO_MX5
 	/* Enable lvds power */
@@ -1643,14 +1684,7 @@ int autoupdate_mode_detect(void){
 int board_late_init(void)
 {
 	int ret = 0;
-	#ifdef CONFIG_I2C_MXC
-	setup_i2c(CONFIG_SYS_I2C_PORT);
-	i2c_bus_recovery();
-	ret = setup_pmic_voltages();
-	if (ret)
-		return -1;
-	#endif
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_ANDROID_BOOTMODE
