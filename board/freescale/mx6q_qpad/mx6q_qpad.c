@@ -928,12 +928,10 @@ msleep(int count)
 }
 #if MIPI_DSI
 
-#warning "FIXME: change mipi-disp panel power_on_and_reset"
 static void power_on_and_reset_mipi_panel_6Q(void)
 {
 	int reg;
 
-	printf("power_on_and_reset_mipi_panel_6Q\n");
 	//LCD PWR
 	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_D6__GPIO_2_6);
 	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
