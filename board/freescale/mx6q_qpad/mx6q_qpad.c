@@ -146,14 +146,15 @@ static struct fb_videomode lvds_wvga = {
 	 0,
 };
 static struct fb_videomode mipi_dsi = {/*add by allenyao*/
-	 "TRULY-WVGA", 60, 540, 960, 32150/*ps*/,
+	 "TRULY-WVGA", 60, 540, 945, 30500/*ps*/,
 	 3, 3,
-	 5, 5,
-	 8, 3,
+	 5, 20,
+	 8, 18,
 	 FB_SYNC_OE_LOW_ACT,//ori is  FB_SYNC_OE_LOW_ACT
 	 FB_VMODE_NONINTERLACED,//ori is  FB_VMODE_NONINTERLACED
 	 0,
 };
+
 static struct mipi_lcd_config mipilcd_config = {//add by allenyao
 	.virtual_ch		= 0x0,
 	.data_lane_num  = 0x2,
