@@ -81,10 +81,29 @@
 #endif
 
 
-//add by allen
+
 #include <bmpmanager.h>
-//add by allen end
+
+#include "powersupply.h"
+
 DECLARE_GLOBAL_DATA_PTR;
+
+enum{
+	ePixelFormatInvalid,
+	ePixelFormatRGB565,
+	ePixelFormatRGB888Pack,
+};
+
+enum {
+ eBootModeNormal=0,
+ eBootModeRecovery,
+ eBootModeCharger,
+ eBootModeFastboot,
+ eBootModeAutoupdate,
+ eBootModeFactory,
+ eBootModeMax,
+};
+static int android_bootmode=eBootModeNormal;
 
 static enum boot_device boot_dev;
 
@@ -102,6 +121,7 @@ static enum boot_device boot_dev;
 #define KEY_MENU_IO IMX_GPIO_NR(3, 9) /*KEY1*/
 #define KEY_HOME_IO IMX_GPIO_NR(3, 10) /*KEY2*/
 #define KEY_BACK_IO IMX_GPIO_NR(3, 11) /*KEY3*/
+#define KEY_POWER_IO IMX_GPIO_NR(3, 29) /*POWER BUTTON*/ 
 
 #define BOARD_REV_IO1 IMX_GPIO_NR(1, 2)
 #define BOARD_REV_IO2 IMX_GPIO_NR(1, 2)
@@ -139,12 +159,7 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 			ipu_di_clk_parent_t di_clk_parent,
 			int di_clk_val);
 
-static struct fb_videomode lvds_wvga = {
-	 "WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
-	 FB_SYNC_EXT,
-	 FB_VMODE_NONINTERLACED,
-	 0,
-};
+#if MIPI_DSI
 static struct fb_videomode mipi_dsi = {/*add by allenyao*/
 	 "TRULY-WVGA", 60, 540, 945, 30500/*ps*/,
 	 3, 3,
@@ -154,6 +169,14 @@ static struct fb_videomode mipi_dsi = {/*add by allenyao*/
 	 FB_VMODE_NONINTERLACED,//ori is  FB_VMODE_NONINTERLACED
 	 0,
 };
+#else
+static struct fb_videomode lvds_wvga = {
+	 "WVGA", 60, 800, 480, 29850, 89, 164, 23, 10, 10, 10,
+	 FB_SYNC_EXT,
+	 FB_VMODE_NONINTERLACED,
+	 0,
+};
+#endif
 
 static struct mipi_lcd_config mipilcd_config = {//add by allenyao
 	.virtual_ch		= 0x0,
@@ -1475,26 +1498,24 @@ static void fill_buffer_rgb565(void* p, unsigned int w, unsigned int h, unsigned
     }
 }
 
-enum{
-	ePixelFormatInvalid,
-	ePixelFormatRGB565,
-	ePixelFormatRGB888Pack,
-};
 static void draw_pattern(void* base,int w,int h,int format){
     if(ePixelFormatRGB565==format)
         fill_buffer_rgb565(base, w, h, 20, 20, 0xFFFF, 0x0000);
     else if(ePixelFormatRGB888Pack==format)
-        fill_buffer_rgb888pack_checks(base, w, h, 20, 20, 0xFFFF, 0x0000);
+        fill_buffer_rgb888pack(base, w, h, 20, 20, 0xFFFF, 0x0000);
 }
 
 void setup_splash_image(void)
 {
 	char *s;
 	ulong addr;
-	//add by allenyao 
 	long size;
 	unsigned long logo;
-	logo = 0x20000000;	
+	logo = CONFIG_SYS_LOAD_ADDR;	
+	if(eBootModeCharger==android_bootmode){
+		setenv("splashimage",NULL);
+		return;
+	}
 	run_command("mmc dev 3",0);
 	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
 	if(size<0){
@@ -1503,7 +1524,6 @@ void setup_splash_image(void)
 	}else{
 		size=size*512;
 		printf("the logo size is 0x%x\n",size);
-	//add by allenyao end
 	}
 
 	s = getenv("splashimage");
@@ -1515,8 +1535,9 @@ void setup_splash_image(void)
 		addr = ioremap_nocache(iomem_to_phys(addr),
 				fsl_bmp_reversed_600x400_size);
 #endif
-		if(!size)
-			draw_pattern(addr,panel_info.vl_col,panel_info.vl_row,ePixelFormatRGB565);
+		if(!size){
+			draw_pattern(gd->fb_base,panel_info.vl_col,panel_info.vl_row,ePixelFormatRGB565);
+		}
 		else
 			memcpy((char *)addr, (char *)logo,size);
 	}
@@ -1626,7 +1647,6 @@ int check_recovery_cmd_file(void)
 int fastboot_mode_detect(void){
 	int button_pressed = 0;
 
-	#warning FIXME:internal pull up control not work?
 	#ifdef ENABLE_KEYPAD_SHORTCUT
 	mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA9__GPIO_3_9),MX6_KEY_PAD_CTRL));
 	mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_DA10__GPIO_3_10),MX6_KEY_PAD_CTRL));
@@ -1687,16 +1707,6 @@ int board_late_init(void)
 }
 
 #ifdef CONFIG_ANDROID_BOOTMODE
-enum {
- eBootModeNormal=0,
- eBootModeRecovery,
- eBootModeCharger,
- eBootModeFastboot,
- eBootModeAutoupdate,
- eBootModeFactory,
- eBootModeMax,
-};
-static int android_bootmode=eBootModeNormal;
 char* append_commandline_extra(char* cmdline){
 	const char* bootmode_cmdline[] ={
 		"",
@@ -1785,6 +1795,13 @@ static const char* board_revision(void){
 	
 }
 
+static int powerkey_detect(void){
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D29__GPIO_3_29));	
+	gpio_direction_input(KEY_POWER_IO);
+	if(gpio_get_value(KEY_POWER_IO))
+		return 1;
+	return 0;
+}
 int checkboard(void)
 {
 	printf("Board: %s-%s: %s Board: 0x%x [",
@@ -1849,22 +1866,59 @@ int checkboard(void)
 		get_hab_status();
 #endif
 
+#ifdef CONFIG_ANDROID_BOOTMODE
+
 	/*
 	 * FIXME,add more robust feature here
 	 *
 	 * 1.Check if DC in
 	 * 2.Check if battery level is low
        */
+    {
+    	int chargermode_wakeup=0;    	
+		iomux_v3_cfg_t mx6q_power_pads[] = {
+			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
+			MX6Q_PAD_EIM_D23__GPIO_3_23, /* CHG_STATUS1_B */
+			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
+			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
+			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
+			NEW_PAD_CTRL(MX6Q_PAD_KEY_ROW2__GPIO_4_11,PAD_CTL_DSE_DISABLE), /*Batter Detection*/
+		};
+	    qpower_charger_pdata qpp={
+			.dok	= IMX_GPIO_NR(2,24),
+			.uok	= IMX_GPIO_NR(3,17),
+			.chg	= IMX_GPIO_NR(3,23),
+			.flt	= IMX_GPIO_NR(5,2),
+			.det	= IMX_GPIO_NR(4,11),		
 
-	#ifdef CONFIG_ANDROID_BOOTMODE
+			.fuelgauge_bus = 0,
+			.fuelgauge_addr = 0x36,
+	    };		
+		mxc_iomux_v3_setup_multiple_pads(mx6q_power_pads,
+			sizeof(mx6q_power_pads) /
+			sizeof(mx6q_power_pads[0]));
+		//init power supply
+		powersupply_init(&qpp);
+		
 
-	#ifdef CONFIG_CHARGER_OFF
-	//check if we should enter charger mode
-	if(charger_check_and_clean_flag()){
-		android_bootmode = eBootModeCharger;
+		//
+		//if(powersupply_dok())
+		//	chargermode_wakeup++;
+		
+		#ifdef CONFIG_CHARGER_OFF
+		//check if we should enter charger mode
+		if(charger_check_and_clean_flag()||chargermode_wakeup){
+			android_bootmode = eBootModeCharger;
+		}
+		#endif
+		
+		
 	}
-	#endif
-	#endif
+       
+	
+
+	
+#endif
 
 	return 0;
 }
