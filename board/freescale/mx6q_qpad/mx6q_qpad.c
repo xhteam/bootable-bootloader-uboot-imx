@@ -19,7 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  * MA 02111-1307 USA
  */
-
+#include <version.h>
 #include <common.h>
 #include <asm/io.h>
 #include <asm/arch/mx6.h>
@@ -1162,7 +1162,7 @@ static void mipi_dsi_enable()
 #endif
 
 /*add by allenyao*/
-#ifdef CONFIG_LCD
+#if  defined(CONFIG_LCD)||defined(CONFIG_VIDEO)
 void lcd_enable(void)
 {
 	char *s;
@@ -1465,45 +1465,99 @@ void panel_info_init(void)
 #endif
 #endif
 
+extern u32 get_mcu_main_clk(void);
+
+#ifdef CONFIG_LCD_INFO
+void lcd_print_size (phys_size_t size, const char *s)
+{
+	ulong m = 0, n;
+	phys_size_t d = 1 << 30;		/* 1 GB */
+	char  c = 'G';
+
+	if (size < d) {			/* try MB */
+		c = 'M';
+		d = 1 << 20;
+		if (size < d) {		/* print in kB */
+			c = 'k';
+			d = 1 << 10;
+		}
+	}
+
+	n = size / d;
+
+	/* If there's a remainder, deal with it */
+	if(size % d) {
+		m = (10 * (size - (n * d)) + (d / 2) ) / d;
+
+		if (m >= 10) {
+			m -= 10;
+			n += 1;
+		}
+	}
+
+	lcd_printf ("%2ld", n);
+	if (m) {
+		lcd_printf (".%ld", m);
+	}
+	lcd_printf (" %cB%s", c, s);
+}
+
+
+
+void lcd_show_board_info(void)
+{
+        ulong dram_size, nand_size, flash_size, dataflash_size;
+        int i;
+        char temp[32];
+
+        lcd_printf ("%s\n", U_BOOT_VERSION);
+        lcd_printf ("(C) 2013 Quester Technology\n");
+        lcd_printf ("raymond.wang@quester.com.cn\n");
+		lcd_printf("CPU: Freescale i.MX6 family TO%d.%d at %d MHz\n",
+			   (get_board_rev() & 0xFF) >> 4,
+			   (get_board_rev() & 0xF),
+			get_mcu_main_clk() / 1000000);
+		
+		
+		for (dram_size=0,i=0; i<CONFIG_NR_DRAM_BANKS; i++) {
+			dram_size += gd->bd->bi_dram[i].size;
+		}
+		lcd_printf("DRAM:  ");
+		lcd_print_size(dram_size, "\n");	
+		//fixme shor MMC size
+
+}
+#endif
+#ifdef CONFIG_CONSOLE_EXTRA_INFO
+void video_get_info_str (int line_number, char *info)
+{
+        char str[128];		
+        ulong dram_size;
+        int i;
+
+        if(line_number == 1) strcpy(info,"(C) 2013 Quester Technology");
+		else if(line_number == 2) {			
+			strcpy(info,"raymond.wang@quester.com.cn");
+		}
+		else if(line_number == 3) {			
+			sprintf(str,"CPU: Freescale i.MX6 family TO%d.%d at %d MHz\n",
+			   (get_board_rev() & 0xFF) >> 4,
+			   (get_board_rev() & 0xF),
+			get_mcu_main_clk() / 1000000);
+			strcpy(info,str);
+		}else if(line_number == 4) {			
+			for (dram_size=0,i=0; i<CONFIG_NR_DRAM_BANKS; i++) {
+				dram_size += gd->bd->bi_dram[i].size;
+			}
+			sprintf(str,"DRAM:  %2ldMB",dram_size/1048576);
+			strcpy(info,str);
+		}else {
+		info [0] = '\0';
+		}
+}
+#endif
+
 #ifdef CONFIG_SPLASH_SCREEN
-static void fill_buffer_rgb888pack(void* p, unsigned int w, unsigned int h, unsigned int wc, unsigned int hc, unsigned int c1, unsigned int c2)
-{
-    unsigned int i, j;
-    unsigned char * pp;
-
-    pp = p;
-    for (j = 0; j < h; j++)
-    {
-        for (i = 0; i < w; i++)
-        {
-            *pp++ = 0xff;
-            *pp++ = 0x00;
-            *pp++ = 0x00;
-        }
-    }
-}
-
-static void fill_buffer_rgb565(void* p, unsigned int w, unsigned int h, unsigned int wc, unsigned int hc, unsigned int c1, unsigned int c2)
-{
-    unsigned int i, j;
-    unsigned short * pp;
-
-    pp = p;
-    for (j = 0; j < h; j++)
-    {
-        for (i = 0; i < w; i++)
-        {
-            *pp++ = ((((i/wc)+(j/hc))%2 == 0)?((unsigned short)c1):((unsigned short)c2));
-        }
-    }
-}
-
-static void draw_pattern(void* base,int w,int h,int format){
-    if(ePixelFormatRGB565==format)
-        fill_buffer_rgb565(base, w, h, 20, 20, 0xFFFF, 0x0000);
-    else if(ePixelFormatRGB888Pack==format)
-        fill_buffer_rgb888pack(base, w, h, 20, 20, 0xFFFF, 0x0000);
-}
 
 void setup_splash_image(void)
 {
@@ -1513,17 +1567,19 @@ void setup_splash_image(void)
 	unsigned long logo;
 	logo = CONFIG_SYS_LOAD_ADDR;	
 	if(eBootModeCharger==android_bootmode){
-		setenv("splashimage",NULL);
+		//in charger-only mode,we don't want to display any content in bootloader step
+		//setenv("splashimage",NULL);
+		
 		return;
 	}
 	run_command("mmc dev 3",0);
 	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
 	if(size<0){
-		printf("There are not bmp imagen");
+		printf("no splash found\n");
 		size =0;	
 	}else{
 		size=size*512;
-		printf("the logo size is 0x%x\n",size);
+		printf("splash size 0x%x\n",size);
 	}
 
 	s = getenv("splashimage");
@@ -1535,10 +1591,7 @@ void setup_splash_image(void)
 		addr = ioremap_nocache(iomem_to_phys(addr),
 				fsl_bmp_reversed_600x400_size);
 #endif
-		if(!size){
-			draw_pattern(gd->fb_base,panel_info.vl_col,panel_info.vl_row,ePixelFormatRGB565);
-		}
-		else
+		if(size)
 			memcpy((char *)addr, (char *)logo,size);
 	}
 }
@@ -1580,6 +1633,7 @@ int board_init(void)
 #ifdef CONFIG_ARCH_MMU
 	gd->fb_base = ioremap_nocache(iomem_to_phys(gd->fb_base), 0);
 #endif
+	memset(gd->fb_base,0,CONFIG_FB_SIZE);
 #endif
 
 
@@ -1945,4 +1999,45 @@ int misc_init_r (void)
 	return 0;
 }
 
+#ifdef CONFIG_CFB_CONSOLE
+#include <video_fb.h>
 
+static GraphicDevice ctfb;
+
+void *video_hw_init(void)
+{
+	lcd_base = (void *)(gd->fb_base); 
+	lcd_enable();
+	ctfb.winSizeX = panel_info.vl_col;
+	ctfb.winSizeY = panel_info.vl_row;
+	/* fill in Graphic device struct */
+	sprintf(ctfb.modeIdent, "MXFB");
+
+	ctfb.frameAdrs = (unsigned int)lcd_base;
+	ctfb.plnSizeX = ctfb.winSizeX;
+	ctfb.plnSizeY = ctfb.winSizeY;
+
+	ctfb.gdfBytesPP = 2;
+	ctfb.gdfIndex = GDF_16BIT_565RGB;
+
+	ctfb.isaBase = 0;
+	ctfb.pciBase = 0;
+	ctfb.memSize = CONFIG_FB_SIZE;
+
+	/* Cursor Start Address */
+	ctfb.dprBase = (unsigned int) lcd_base + (ctfb.winSizeX * ctfb.winSizeY * ctfb.gdfBytesPP);        
+	if ((ctfb.dprBase & 0x0fff) != 0) {
+		/* allign it */
+		ctfb.dprBase &= 0xfffff000;
+		ctfb.dprBase += 0x00001000;
+	}
+	ctfb.vprBase = (unsigned int) lcd_base;
+	ctfb.cprBase = (unsigned int) lcd_base;
+
+	//background color
+	ctfb.bg = 0;
+
+	return &ctfb;
+}
+
+#endif

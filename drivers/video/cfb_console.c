@@ -747,6 +747,18 @@ void video_puts (const char *s)
 
 /*****************************************************************************/
 
+/*
+ * Do not enforce drivers (or board code) to provide empty
+ * video_set_lut() if they do not support 8 bpp format.
+ * Implement weak default function instead.
+ */
+void __video_set_lut (unsigned int index, unsigned char r,
+		      unsigned char g, unsigned char b)
+{
+}
+void video_set_lut (unsigned int, unsigned char, unsigned char, unsigned char)
+			__attribute__((weak, alias("__video_set_lut")));
+
 #if defined(CONFIG_CMD_BMP) || defined(CONFIG_SPLASH_SCREEN)
 
 #define FILL_8BIT_332RGB(r,g,b)	{			\
@@ -998,6 +1010,28 @@ int video_display_bitmap (ulong bmp_image, int x, int y)
 			}
 			break;
 		}
+		break;
+	case 16:
+		//simple add 16->16 mapping support			
+		padded_line -= 2* width;
+		unsigned ycount = height;
+		switch (VIDEO_DATA_FORMAT) {
+			case GDF_16BIT_565RGB:{
+    				while (ycount--) {
+    					WATCHDOG_RESET ();
+    					xcount = width;
+    					while (xcount--) {
+    						*(unsigned short*)fb = *(unsigned short*)bmap;
+    						bmap += 2;
+    						fb+=2;
+    					}
+    					bmap += padded_line;
+    					fb -= (VIDEO_VISIBLE_COLS + width) * VIDEO_PIXEL_SIZE;
+    				}					
+				}
+				break;
+				default:break;
+		}			
 		break;
 	case 24:
 		padded_line -= 3 * width;

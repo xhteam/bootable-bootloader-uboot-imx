@@ -99,9 +99,20 @@
  *Enable MIPI panel in uboot
 */
 #define MIPI_DSI	1
-
 #define CONFIG_ANDROID_BOOTMODE
 #define CONFIG_CHARGER_OFF
 
+#undef  CONFIG_LCD
+#define CONFIG_VIDEO	1
+#define CONFIG_VIDEO_LOGO 1	
+#define CONFIG_VIDEO_BMP_LOGO
+#define VIDEO_FB_16BPP_PIXEL_SWAP
+#define CONFIG_CFB_CONSOLE	           1
+#define CONFIG_CONSOLE_EXTRA_INFO
+#define CONFIG_VGA_AS_SINGLE_DEVICE
+
+#ifdef  CONFIG_LCD 
+#define CONFIG_LCD_INFO 1
+#endif
 
 #endif

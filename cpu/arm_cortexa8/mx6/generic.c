@@ -168,6 +168,12 @@ static u32 __get_mcu_main_clk(void)
 	return freq / (reg + 1);
 }
 
+u32 get_mcu_main_clk(void)
+{
+	return __get_mcu_main_clk();
+}
+
+
 static u32 __get_periph_clk(void)
 {
 	u32 reg;

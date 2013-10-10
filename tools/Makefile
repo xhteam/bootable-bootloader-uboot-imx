@@ -129,6 +129,10 @@ endif
 ifeq ($(VENDOR),ronetix)
 LOGO_BMP= logos/ronetix.bmp
 endif
+ifeq ($(VENDOR),freescale)
+LOGO_BMP= logos/android.bmp
+endif
+
 
 # now $(obj) is defined
 SRCS	+= $(addprefix $(SRCTREE)/,$(EXT_OBJ_FILES-y:.o=.c))

@@ -797,8 +797,12 @@ int fastboot_mode_detect(void)__attribute__((weak, alias("__fastboot_mode_detect
 /* export to lib_arm/board.c */
 void check_fastboot_mode(void)
 {
-	if (fastboot_check_and_clean_flag()||fastboot_mode_detect())
+	if (fastboot_check_and_clean_flag()||fastboot_mode_detect()){
+		//trying to use lcd or vga mode for stdout
+		if(console_assign(stdout,"lcd"))
+			console_assign(stdout,"vga");
 		do_fastboot(NULL, 0, 0, 0);
+	}
 }
 
 u8 fastboot_debug_level;
