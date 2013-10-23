@@ -23,6 +23,9 @@ int powersupply_init(qpower_charger_pdata * pdata);
 //return dc status
 int powersupply_dok(void);
 
+//return dc status
+int powersupply_uok(void);
+
 //return charge status
 int powersupply_chg(void);
 

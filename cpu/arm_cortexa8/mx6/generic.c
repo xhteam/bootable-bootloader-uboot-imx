@@ -1285,6 +1285,26 @@ int charger_check_and_clean_flag(void)
 }
 #endif
 
+#define ANDROID_LINUX_BOOT  (1 << 11)
+/* check if the linux bit is set by kernel, it can be set by kernel
+ * issue a command '# normal reboot ' */
+int linux_check_and_clean_flag(void)
+{
+	int flag_set = 0;
+	u32 reg;
+
+	reg = readl(SNVS_BASE_ADDR + SNVS_LPGPR);
+
+	flag_set = !!(reg & ANDROID_LINUX_BOOT);
+
+	/* clean it in case looping infinite here.... */
+	if (flag_set) {
+		reg &= ~ANDROID_LINUX_BOOT;
+		writel(reg, SNVS_BASE_ADDR + SNVS_LPGPR);
+	}
+	return flag_set;
+}
+
 
 
 #ifdef CONFIG_CMD_IMX_DOWNLOAD_MODE

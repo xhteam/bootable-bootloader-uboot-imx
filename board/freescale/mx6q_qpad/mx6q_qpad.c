@@ -87,13 +87,6 @@
 #include "powersupply.h"
 
 DECLARE_GLOBAL_DATA_PTR;
-
-enum{
-	ePixelFormatInvalid,
-	ePixelFormatRGB565,
-	ePixelFormatRGB888Pack,
-};
-
 enum {
  eBootModeNormal=0,
  eBootModeRecovery,
@@ -1930,9 +1923,11 @@ int checkboard(void)
        */
     {
     	int chargermode_wakeup=0;    	
+		int charger_online,charger_status;
+		char* env;
 		iomux_v3_cfg_t mx6q_power_pads[] = {
 			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
-			MX6Q_PAD_EIM_D23__GPIO_3_23, /* CHG_STATUS1_B */
+			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUS_100K_DOWN|PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
 			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
 			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
 			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
@@ -1953,20 +1948,36 @@ int checkboard(void)
 			sizeof(mx6q_power_pads[0]));
 		//init power supply
 		powersupply_init(&qpp);
-		
+		charger_online=charger_status=0;
 
 		//
 		//if(powersupply_dok())
 		//	chargermode_wakeup++;
-		
 		#ifdef CONFIG_CHARGER_OFF
 		//check if we should enter charger mode
 		if(charger_check_and_clean_flag()||chargermode_wakeup){
 			android_bootmode = eBootModeCharger;
 		}
+		if(!linux_check_and_clean_flag())
+			android_bootmode = eBootModeCharger;
 		#endif
-		
-		
+
+		if(eBootModeNormal!=android_bootmode){
+			//handle normal status
+			env = getenv("autocharger");
+			if(env&&!strcmp(env,"disabled")){
+				android_bootmode = eBootModeNormal;
+			}
+			if(powersupply_dok())
+				charger_online++;
+			if(powersupply_uok())
+				charger_online++;
+			charger_status = powersupply_chg();
+			if(!charger_online||!charger_status)
+				android_bootmode = eBootModeNormal;
+
+			//FIXME,if battery alert sensed,only enabled charger mode???
+		}
 	}
        
 	
