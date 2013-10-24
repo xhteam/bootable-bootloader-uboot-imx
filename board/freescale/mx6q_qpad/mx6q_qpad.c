@@ -1763,16 +1763,23 @@ char* append_commandline_extra(char* cmdline){
 		"",
 		" androidboot.mode=factory",
 	};
+	char* newcmdline = malloc(strlen(cmdline)+strlen(bootmode_cmdline[android_bootmode])+1);
+	if(!newcmdline) return cmdline;
+	strcpy(newcmdline,cmdline);
 	if(android_bootmode<eBootModeMax&&strlen(bootmode_cmdline[android_bootmode])){
-		char* newcmdline = malloc(strlen(cmdline)+strlen(bootmode_cmdline[android_bootmode])+1);
-		printf("bootmode=%d,extra cmdline[%s]\n",android_bootmode,bootmode_cmdline[android_bootmode]);
-		if(newcmdline){
-			strcpy(newcmdline,cmdline);
-			strcat(newcmdline,bootmode_cmdline[android_bootmode]);
-			return newcmdline;
-		}
+		strcat(newcmdline,bootmode_cmdline[android_bootmode]);
 	}
-	return cmdline;
+	#ifdef CONFIG_CMD_IMXOTP
+	{
+		char buffer[128];
+		unsigned int id0,id1;
+		imx_otp_read_one_u32(2,&id1);
+		imx_otp_read_one_u32(1,&id0);
+		sprintf(buffer," androidboot.serialno=%08x%08x",id1,id0);
+		strcat(newcmdline,buffer);
+	}
+	#endif
+	return newcmdline;
 }
 #endif
 
