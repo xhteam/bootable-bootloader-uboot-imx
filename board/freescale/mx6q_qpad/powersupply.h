@@ -35,6 +35,9 @@ int powersupply_flt(void);
 //return battery probe status
 int powersupply_bat(void);
 
+//return battery soc
+int powersupply_soc(void);
+
 
 
 

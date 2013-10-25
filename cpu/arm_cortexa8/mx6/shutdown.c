@@ -22,6 +22,9 @@ static void mx6_snvs_poweroff(void)
 int do_mx6_shutdown(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
 	int wait_ms=1000;
+
+	
+	printf("machine shutdown ...\n");
 	mx6_snvs_poweroff();
 
 	//

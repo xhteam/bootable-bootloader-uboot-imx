@@ -23,6 +23,7 @@
 #include <common.h>
 #include <asm/io.h>
 #include <asm/arch/mx6.h>
+#include <bmpmanager.h>
 #include <asm/arch/mx6_pins.h>
 #include "../../../drivers/video/mipi_common.h"//add by allenyao
 #include <mipi_dsi.h>//add by allenyao
@@ -96,7 +97,21 @@ enum {
  eBootModeFactory,
  eBootModeMax,
 };
+
+enum {
+ eBootReasonPOR,
+ eBootReasonWDOG,
+ eBootReasonReset,
+ eBootReasonCharger,
+};
 static int android_bootmode=eBootModeNormal;
+static int system_boot_reason=eBootReasonPOR;
+
+static unsigned char bmp_bat0[]={
+	#include "bat0.inc"
+};
+static int bmp_bat0_size = sizeof(bmp_bat0);
+
 
 static enum boot_device boot_dev;
 
@@ -365,6 +380,7 @@ void setup_lvds_poweron(void)
 #define I2C3_SCL_GPIO1_3_BIT_MASK   (1 << 3)
 #define I2C3_SDA_GPIO1_6_BIT_MASK   (1 << 6)
 
+extern u32 I2C_BASE;
 
 static void setup_i2c(unsigned int module_base)
 {
@@ -435,6 +451,8 @@ static void setup_i2c(unsigned int module_base)
 		printf("Invalid I2C base: 0x%x\n", module_base);
 		break;
 	}
+
+	I2C_BASE  = module_base;
 }
 
 static void mx6q_i2c_gpio_scl_direction(int bus, int output)
@@ -1568,13 +1586,14 @@ void setup_splash_image(void)
 	run_command("mmc dev 3",0);
 	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
 	if(size<0){
-		printf("no splash found\n");
 		size =0;	
 	}else{
 		size=size*512;
-		printf("splash size 0x%x\n",size);
 	}
 
+	if(!size)
+		setenv("splashimage",0);
+	
 	s = getenv("splashimage");
 
 	if (s != NULL) {
@@ -1856,6 +1875,88 @@ static int powerkey_detect(void){
 		return 1;
 	return 0;
 }
+
+static void sdelay(int s){
+  s*=1000;
+  while(s>0){
+  	s--;
+	__udelay(1000);
+  }
+}
+
+static int draw_bmp(u8* bmp_image,int mode){
+    int ret=0;
+	bmp_image_t *bmp = (bmp_image_t *) bmp_image;
+	int screen_w;
+	int screen_h;
+	int x,y;
+
+	screen_w = panel_info.vl_col;
+	screen_h = panel_info.vl_row;
+	if (mode)
+	{
+		x = y = 0;
+	}
+	else
+	{
+        unsigned long width, height;
+	    width = height = 0;
+        if (((bmp->header.signature[0] == 'B') &&
+              (bmp->header.signature[1] == 'M'))) {
+            width = le32_to_cpu (bmp->header.width);
+            height = le32_to_cpu (bmp->header.height);
+        }
+		
+		//fix issue that height value may be negative 
+		if(height<0) height=-height;
+		//avoid bad bmp draw on screen
+		if(width>screen_w||height>screen_h)
+			return -1;
+
+		x = max(0, (screen_w- width) / 2);
+		y = max(0, (screen_h- height) / 2);
+	}
+
+	#if defined(CONFIG_LCD)
+	extern int lcd_display_bitmap (ulong, int, int);
+
+	ret = lcd_display_bitmap ((unsigned long)bmp_image, x, y);
+	#elif defined(CONFIG_VIDEO)
+	extern int video_display_bitmap (ulong, int, int);
+
+	ret = video_display_bitmap ((unsigned long)bmp_image, x, y);
+	#else
+	# error lcd_draw_bmp() requires CONFIG_LCD or CONFIG_VIDEO
+	#endif
+
+	return ret;
+}
+
+static void lcd_screen_clear(void){
+	memset((void*)gd->fb_base,0,panel_info.vl_col*panel_info.vl_row*4);
+}
+static int do_batterybmp(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+{
+	char buffer[16];
+    int lvl=0;
+    u8* bmp = CONFIG_SYS_LOAD_ADDR;
+    if(argc>1)
+        lvl = simple_strtol(argv[1],0,10);
+	sprintf(buffer,"bmp.bat%d",lvl);
+	if(bmp_manager_readbmp(buffer,bmp,0x2000000)<=0)
+		bmp = bmp_bat0;
+
+	lcd_screen_clear();
+	
+	draw_bmp(bmp,0);
+	
+	return 0;
+}
+
+U_BOOT_CMD(
+        batterybmp, CONFIG_SYS_MAXARGS, 0, do_batterybmp, NULL, NULL
+);
+
 int checkboard(void)
 {
 	printf("Board: %s-%s: %s Board: 0x%x [",
@@ -1865,15 +1966,21 @@ int checkboard(void)
 	fsl_system_rev);
 
 	switch (__REG(SRC_BASE_ADDR + 0x8)) {
-	case 0x0001:
-		printf("POR");
+	case 0x0001:{
+			printf("POR");
+			system_boot_reason = eBootReasonPOR;
+		}
 		break;
-	case 0x0009:
-		printf("RST");
+	case 0x0009:{
+			printf("RST");
+			system_boot_reason = eBootReasonReset;			
+		}
 		break;
 	case 0x0010:
-	case 0x0011:
-		printf("WDOG");
+	case 0x0011:{			
+			system_boot_reason = eBootReasonWDOG;			
+			printf("WDOG");
+		}
 		break;
 	default:
 		printf("unknown");
@@ -1920,77 +2027,6 @@ int checkboard(void)
 		get_hab_status();
 #endif
 
-#ifdef CONFIG_ANDROID_BOOTMODE
-
-	/*
-	 * FIXME,add more robust feature here
-	 *
-	 * 1.Check if DC in
-	 * 2.Check if battery level is low
-       */
-    {
-    	int chargermode_wakeup=0;    	
-		int charger_online,charger_status;
-		char* env;
-		iomux_v3_cfg_t mx6q_power_pads[] = {
-			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
-			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUS_100K_DOWN|PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
-			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
-			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
-			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
-			NEW_PAD_CTRL(MX6Q_PAD_KEY_ROW2__GPIO_4_11,PAD_CTL_DSE_DISABLE), /*Batter Detection*/
-		};
-	    qpower_charger_pdata qpp={
-			.dok	= IMX_GPIO_NR(2,24),
-			.uok	= IMX_GPIO_NR(3,17),
-			.chg	= IMX_GPIO_NR(3,23),
-			.flt	= IMX_GPIO_NR(5,2),
-			.det	= IMX_GPIO_NR(4,11),		
-
-			.fuelgauge_bus = 0,
-			.fuelgauge_addr = 0x36,
-	    };		
-		mxc_iomux_v3_setup_multiple_pads(mx6q_power_pads,
-			sizeof(mx6q_power_pads) /
-			sizeof(mx6q_power_pads[0]));
-		//init power supply
-		powersupply_init(&qpp);
-		charger_online=charger_status=0;
-
-		//
-		//if(powersupply_dok())
-		//	chargermode_wakeup++;
-		#ifdef CONFIG_CHARGER_OFF
-		//check if we should enter charger mode
-		if(charger_check_and_clean_flag()||chargermode_wakeup){
-			android_bootmode = eBootModeCharger;
-		}
-		if(!linux_check_and_clean_flag())
-			android_bootmode = eBootModeCharger;
-		#endif
-
-		if(eBootModeNormal!=android_bootmode){
-			//handle normal status
-			env = getenv("autocharger");
-			if(env&&!strcmp(env,"disabled")){
-				android_bootmode = eBootModeNormal;
-			}
-			if(powersupply_dok())
-				charger_online++;
-			if(powersupply_uok())
-				charger_online++;
-			charger_status = powersupply_chg();
-			if(!charger_online||!charger_status)
-				android_bootmode = eBootModeNormal;
-
-			//FIXME,if battery alert sensed,only enabled charger mode???
-		}
-	}
-       
-	
-
-	
-#endif
 
 	return 0;
 }
@@ -2014,6 +2050,112 @@ void udc_pins_setting(void)
 
 int misc_init_r (void)
 {
+#ifdef CONFIG_ANDROID_BOOTMODE
+
+	/*
+	 * FIXME,add more robust feature here
+	 *
+	 * 1.Check if DC in
+	 * 2.Check if battery level is low
+	   */
+	{
+		int chargermode_wakeup=0;		
+		int charger_online,charger_status;
+		int soc;
+		int soc_low=0;
+		int bat_low_force=0;
+		char* env;
+		iomux_v3_cfg_t mx6q_power_pads[] = {
+			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
+			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUS_100K_DOWN|PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
+			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
+			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
+			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
+			NEW_PAD_CTRL(MX6Q_PAD_KEY_ROW2__GPIO_4_11,PAD_CTL_DSE_DISABLE), /*Batter Detection*/
+		};
+		qpower_charger_pdata qpp={
+			.dok	= IMX_GPIO_NR(2,24),
+			.uok	= IMX_GPIO_NR(3,17),
+			.chg	= IMX_GPIO_NR(3,23),
+			.flt	= IMX_GPIO_NR(5,2),
+			.det	= IMX_GPIO_NR(4,11),		
+
+			.fuelgauge_bus = 0,
+			.fuelgauge_addr = 0x36,
+		};		
+		mxc_iomux_v3_setup_multiple_pads(mx6q_power_pads,
+			sizeof(mx6q_power_pads) /
+			sizeof(mx6q_power_pads[0]));
+		//init power supply 	
+		setup_i2c(CONFIG_FUELGAUGE_I2C_PORT);
+		powersupply_init(&qpp);
+		soc=powersupply_soc();
+		printf("soc=%d\n",soc);
+		if(soc>=0&&soc<2)
+			soc_low++;
+		charger_online=charger_status=0;
+
+		//
+		//if(powersupply_dok())
+		//	chargermode_wakeup++;
+	#ifdef CONFIG_CHARGER_OFF
+		//check if we should enter charger mode
+		if(charger_check_and_clean_flag()||chargermode_wakeup){
+			android_bootmode = eBootModeCharger;
+		}
+		if(!linux_check_and_clean_flag())
+			android_bootmode = eBootModeCharger;
+	#endif
+
+		if(eBootModeNormal!=android_bootmode){
+			//handle normal status
+			env = getenv("autocharger");
+			if(env&&!strcmp(env,"disabled")){
+				android_bootmode = eBootModeNormal;
+			}
+		}
+		if(eBootModeNormal!=android_bootmode){
+			if(powersupply_dok())
+				charger_online++;
+			if(powersupply_uok())
+				charger_online++;
+			charger_status = powersupply_chg();
+			if(!charger_online||!charger_status)
+				android_bootmode = eBootModeNormal;
+		}
+		if(eBootModeNormal!=android_bootmode){
+			if(eBootReasonWDOG==system_boot_reason)
+				android_bootmode = eBootModeNormal;
+		}
+		
+		//FIXME,if battery alert sensed,only enabled charger mode???
+		if(getenv("batlow")){
+			bat_low_force++;
+			setenv("batlow",0);
+			saveenv();
+		}
+		if((soc_low&&!charger_online)||bat_low_force){
+			long size;
+			size=bmp_manager_readbmp("bmp.bat0",CONFIG_SYS_LOAD_ADDR,0x2000000);
+			lcd_screen_clear();
+			if(size>0){
+				draw_bmp(CONFIG_SYS_LOAD_ADDR,0);
+			}else {
+				draw_bmp(bmp_bat0,0);				
+			}
+
+			sdelay(5);			
+			//shutdown whole machine now
+			run_command("shutdown", 0);
+		}
+		
+	}
+	   
+		
+	
+		
+#endif
+
 	return 0;
 }
 

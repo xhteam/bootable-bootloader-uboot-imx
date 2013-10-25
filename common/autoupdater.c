@@ -117,6 +117,13 @@ static int lcd_draw_bmp(u8* bmp_image,int mode){
             width = le32_to_cpu (bmp->header.width);
             height = le32_to_cpu (bmp->header.height);
         }
+		
+		//fix issue that height value may be negative 
+		if(height<0) height=-height;
+		//avoid bad bmp draw on screen
+		if(width>screen_w||height>screen_h)
+			return -1;
+
 		x = max(0, (screen_w- width) / 2);
 		y = max(0, (screen_h- height) / 2);
 	}

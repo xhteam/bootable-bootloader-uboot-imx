@@ -115,4 +115,8 @@
 #define CONFIG_LCD_INFO 1
 #endif
 
+/*I2C port for FuelGauge*/
+#define CONFIG_FUELGAUGE_I2C_PORT 	I2C1_BASE_ADDR
+
+
 #endif
