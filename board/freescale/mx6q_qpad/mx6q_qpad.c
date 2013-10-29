@@ -771,9 +771,10 @@ static int setup_pmic_voltages(void)
 			printf("Set VGEN6 error!\n");
 			return -1;
 		}
+		return 0;
 	}
 
-	return 0;
+	return -1;
 }
 #endif
 
@@ -1182,16 +1183,6 @@ void lcd_enable(void)
 
 	s = getenv("lvds_num");
 	di = simple_strtol(s, NULL, 10);
-
-	/*Move i2c and pmic setup voltages to here because MIPI lcd require VGEN6 decrease 2.8V from 3.3V*/
-	#ifdef CONFIG_I2C_MXC
-	setup_i2c(CONFIG_SYS_I2C_PORT);
-	i2c_bus_recovery();
-	ret = setup_pmic_voltages();
-	if (ret){
-		printf("setup pmic voltagte error\n");	
-	}
-	#endif
 
 	/*
 	* hw_rev 2: IPUV3DEX
@@ -1766,11 +1757,14 @@ int autoupdate_mode_detect(void){
 	
 }
 #endif
+
+#ifdef BOARD_LATE_INIT
 int board_late_init(void)
 {
-	int ret = 0;
+	int ret = 0;	
 	return ret;
 }
+#endif
 
 #ifdef CONFIG_ANDROID_BOOTMODE
 char* append_commandline_extra(char* cmdline){
@@ -1957,6 +1951,32 @@ U_BOOT_CMD(
         batterybmp, CONFIG_SYS_MAXARGS, 0, do_batterybmp, NULL, NULL
 );
 
+static int do_i2cport(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
+{
+	char buffer[16];
+	int port;
+    if(argc>1){
+        port = simple_strtol(argv[1],0,10);
+		switch(port){
+			case 1:{setup_i2c(I2C1_BASE_ADDR);i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);	}break;
+			default:
+			case 2:{setup_i2c(I2C2_BASE_ADDR);i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);	}break;
+			case 3:{setup_i2c(I2C3_BASE_ADDR);i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);	}break;			
+		}
+	}
+	printf("current i2cport=%d[0x%x]\n",
+		(I2C1_BASE_ADDR==I2C_BASE)?1:
+		(I2C2_BASE_ADDR==I2C_BASE)?2:
+		(I2C3_BASE_ADDR==I2C_BASE)?3:-1,I2C_BASE);
+	
+	return 0;
+}
+
+U_BOOT_CMD(
+        i2cport, CONFIG_SYS_MAXARGS, 0, do_i2cport, "i2cport - switch mxc i2cport[1|2|3]", NULL
+);
+
+
 int checkboard(void)
 {
 	printf("Board: %s-%s: %s Board: 0x%x [",
@@ -2027,6 +2047,14 @@ int checkboard(void)
 		get_hab_status();
 #endif
 
+	/*Move i2c and pmic setup voltages to here because MIPI lcd require VGEN6 decrease 2.8V from 3.3V*/
+	#ifdef CONFIG_I2C_MXC
+	i2c_bus_recovery();
+	setup_i2c(CONFIG_SYS_I2C_PORT);
+	if (setup_pmic_voltages()){
+		printf("setup pmic voltagte error\n");	
+	}
+	#endif
 
 	return 0;
 }
@@ -2063,6 +2091,7 @@ int misc_init_r (void)
 		int charger_online,charger_status;
 		int soc;
 		int soc_low=0;
+		int bat_low_threshold=5;
 		int bat_low_force=0;
 		char* env;
 		iomux_v3_cfg_t mx6q_power_pads[] = {
@@ -2090,14 +2119,17 @@ int misc_init_r (void)
 		setup_i2c(CONFIG_FUELGAUGE_I2C_PORT);
 		powersupply_init(&qpp);
 		soc=powersupply_soc();
-		printf("soc=%d\n",soc);
-		if(soc>=0&&soc<2)
+		if(env=getenv("batlowthres")){
+			int low_threshold = simple_strtoul(env,NULL,10);
+			if((low_threshold>=0)&&
+				(low_threshold<=100))
+				bat_low_threshold = low_threshold;
+		}
+		printf("soc[%d]thres[%d]\n",soc,bat_low_threshold);
+		if(soc>=0&&soc<=bat_low_threshold)
 			soc_low++;
 		charger_online=charger_status=0;
 
-		//
-		//if(powersupply_dok())
-		//	chargermode_wakeup++;
 	#ifdef CONFIG_CHARGER_OFF
 		//check if we should enter charger mode
 		if(charger_check_and_clean_flag()||chargermode_wakeup){
@@ -2148,7 +2180,10 @@ int misc_init_r (void)
 			//shutdown whole machine now
 			run_command("shutdown", 0);
 		}
-		
+
+
+		//switch back to pmic bus		
+		setup_i2c(CONFIG_SYS_I2C_PORT);
 	}
 	   
 		

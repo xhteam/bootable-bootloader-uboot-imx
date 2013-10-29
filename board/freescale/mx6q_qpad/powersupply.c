@@ -158,6 +158,8 @@ int powersupply_soc(void){
 
  	if(soc>=0)	soc >>=9;
 
+	if(soc>100)
+		soc=100;
 	return soc;
  	
 }
