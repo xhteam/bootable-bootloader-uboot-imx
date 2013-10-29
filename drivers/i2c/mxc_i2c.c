@@ -52,11 +52,10 @@
 # error "define CONFIG_SYS_I2C_PORT(I2C base address) to use the I2C driver"
 #endif
 
-#define I2C_MAX_TIMEOUT		100000
+#define I2C_MAX_TIMEOUT		1000000
 #define I2C_TIMEOUT_TICKET	1
 
 #undef DEBUG
-
 #ifdef DEBUG
 #define DPRINTF(args...)  printf(args)
 #else
