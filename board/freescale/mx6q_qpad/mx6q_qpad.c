@@ -2142,7 +2142,7 @@ int misc_init_r (void)
 		if(eBootModeNormal!=android_bootmode){
 			//handle normal status
 			env = getenv("autocharger");
-			if(env&&!strcmp(env,"disabled")){
+			if(!env||strcmp(env,"enabled")){
 				android_bootmode = eBootModeNormal;
 			}
 		}
