@@ -2125,9 +2125,11 @@ int misc_init_r (void)
 				(low_threshold<=100))
 				bat_low_threshold = low_threshold;
 		}
-		printf("soc[%d]thres[%d]\n",soc,bat_low_threshold);
-		if(soc>=0&&soc<=bat_low_threshold)
-			soc_low++;
+		if(soc>=0){
+			printf("soc[%d]thres[%d]\n",soc,bat_low_threshold);
+			if(soc<=bat_low_threshold)
+				soc_low++;
+		}
 		charger_online=charger_status=0;
 
 	#ifdef CONFIG_CHARGER_OFF
