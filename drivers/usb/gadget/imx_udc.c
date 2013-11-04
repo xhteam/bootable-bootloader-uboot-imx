@@ -751,7 +751,6 @@ void usb_dev_hand_pci(void)
 void usb_dev_hand_suspend(void)
 {
 }
-static int ll;
 void mxc_irq_poll(void)
 {
 	unsigned irq_src = readl(USB_USBSTS) & readl(USB_USBINTR);
@@ -761,7 +760,6 @@ void mxc_irq_poll(void)
 		return;
 
 	if (irq_src & USB_STS_INT) {
-		ll++;
 		DBG("USB_INT\n");
 		usb_dev_hand_usbint();
 	}
