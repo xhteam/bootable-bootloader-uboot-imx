@@ -106,12 +106,14 @@ extern struct fastboot_device_info fastboot_devinfo;
 
 static unsigned int download_size;
 static unsigned int download_bytes;
+static unsigned int download_size_kb;
 static unsigned int download_bytes_unpadded;
 static unsigned int download_error;
 static unsigned int continue_booting;
 static unsigned int upload_size;
 static unsigned int upload_bytes;
 static unsigned int upload_error;
+
 
 /* To support the Android-style naming of flash */
 #define MAX_PTN		    16
@@ -277,6 +279,7 @@ static void reset_handler ()
 	/* If there was a download going on, bail */
 	download_size = 0;
 	download_bytes = 0;
+	download_size_kb = 0;
 	download_bytes_unpadded = 0;
 	download_error = 0;
 	continue_booting = 0;
@@ -797,12 +800,14 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 
 			if (buffer_size < transfer_size)
 				transfer_size = buffer_size;
+			
 
 			/* Save the data to the transfer buffer */
 			memcpy(interface.transfer_buffer + download_bytes,
 				buffer, transfer_size);
 
 			download_bytes += transfer_size;
+
 
 			/* Check if transfer is done */
 			if (download_bytes >= download_size) {
@@ -814,10 +819,12 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 				if (download_error) {
 					/* There was an earlier error */
 					sprintf(response, "ERROR");
+					printf("	ERROR	\r\n");
 				} else {
 					/* Everything has transferred,
 					   send the OK response */
 					sprintf(response, "OKAY");
+					printf("	100%	\r\n");
 				}
 				fastboot_tx_status(response, strlen(response));
 
@@ -854,21 +861,18 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 #endif
 			}
 
+
 			/* Provide some feedback */
 			if (download_bytes &&
 			    0 == (download_bytes %
-				  (16 * interface.nand_block_size))) {
+				  (32 * interface.nand_block_size))) {
 				/* Some feeback that the
 				   download is happening */
 				if (download_error)
-					printf("X");
-				else
-					printf(".");
-				if (0 == (download_bytes %
-					  (80 * 16 *
-					   interface.nand_block_size)))
-					printf("\n");
-
+					printf("	ERROR	\r\n");
+				else {
+					printf("	%d%%	\r",((download_size_kb-((download_size-download_bytes)/1024))*100)/download_size_kb);
+				}
 			}
 		} else {
 			/* Ignore empty buffers */
@@ -904,7 +908,7 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 		/* getvar
 		   Get common fastboot variables
 		   Board has a chance to handle other variables */
-		if (memcmp(cmdbuf, "getvar:", 7) == 0) {
+		else if (memcmp(cmdbuf, "getvar:", 7) == 0) {
 			strcpy(response, "OKAY");
 
 			temp_len = strlen("getvar:");
@@ -935,7 +939,7 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 		/* erase
 		   Erase a register flash partition
 		   Board has to set up flash partitions */
-		if (memcmp(cmdbuf, "erase:", 6) == 0) {
+		else if (memcmp(cmdbuf, "erase:", 6) == 0) {
 #if defined(CONFIG_FASTBOOT_STORAGE_NAND)
 			struct fastboot_ptentry *ptn;
 
@@ -993,7 +997,7 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 		   download something ..
 		   What happens to it depends on the next command after data */
 
-		if (memcmp(cmdbuf, "download:", 9) == 0) {
+		else if (memcmp(cmdbuf, "download:", 9) == 0) {
 
 			/* save the size */
 			download_size = simple_strtoul(cmdbuf + 9, NULL, 16);
@@ -1004,6 +1008,8 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 
 			printf("Starting download of %d bytes\n",
 				download_size);
+
+			download_size_kb = download_size/1024;
 
 			if (0 == download_size) {
 				/* bad user input */
@@ -1055,7 +1061,7 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 
 		*/
 
-		if (memcmp(cmdbuf, "boot", 4) == 0) {
+		else if (memcmp(cmdbuf, "boot", 4) == 0) {
 
 			if ((download_bytes) &&
 			    (CFG_FASTBOOT_MKBOOTIMAGE_PAGE_SIZE <
@@ -1103,7 +1109,7 @@ static int rx_handler (const unsigned char *buffer, unsigned int buffer_size)
 		/* flash
 		   Flash what was downloaded */
 
-		if (memcmp(cmdbuf, "flash:", 6) == 0) {
+		else if (memcmp(cmdbuf, "flash:", 6) == 0) {
 #if defined(CONFIG_FASTBOOT_STORAGE_NAND)
 			if (download_bytes) {
 				struct fastboot_ptentry *ptn;
@@ -1341,7 +1347,7 @@ mmc_ops:
 
 		/* continue
 		   Stop doing fastboot */
-		if (memcmp(cmdbuf, "continue", 8) == 0) {
+		else if (memcmp(cmdbuf, "continue", 8) == 0) {
 			sprintf(response, "OKAY");
 			continue_booting = 1;
 			ret = 0;
@@ -1349,7 +1355,7 @@ mmc_ops:
 
 		/* upload
 		   Upload just the data in a partition */
-		if ((memcmp(cmdbuf, "upload:", 7) == 0) ||
+		else if ((memcmp(cmdbuf, "upload:", 7) == 0) ||
 		    (memcmp(cmdbuf, "uploadraw:", 10) == 0)) {
 #if defined(CONFIG_FASTBOOT_STORAGE_NAND)
 			unsigned int adv, delim_index, len;
@@ -1491,7 +1497,7 @@ mmc_ops:
 #endif
 			ret = 0;
 		}
-		if(memcmp(cmdbuf, "oem", 3) == 0) {
+		else if(memcmp(cmdbuf, "oem", 3) == 0) {
 			char *oem_command=cmdbuf+4;
 			printf("oemcommand:%s:\n", oem_command);
 			if(board_oem(oem_command))
@@ -1758,6 +1764,7 @@ int do_fastboot (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		if (0 == fastboot_init(&interface)) {
 
 			int poll_status;
+			uint64_t current_time = 0;
 
 			/* If we got this far, we are a success */
 			ret = 0;
@@ -1768,9 +1775,7 @@ int do_fastboot (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 			timeout_endtime += timeout_ticks;
 
 			while (1) {
-				uint64_t current_time = 0;
 				poll_status = fastboot_poll();
-
 				if (1 == check_timeout)
 					current_time = get_timer(0);
 
