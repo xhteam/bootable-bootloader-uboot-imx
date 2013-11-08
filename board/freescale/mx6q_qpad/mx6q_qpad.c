@@ -2148,12 +2148,13 @@ int misc_init_r (void)
 				android_bootmode = eBootModeNormal;
 			}
 		}
+		if(powersupply_dok())
+			charger_online++;
+		if(powersupply_uok())
+			charger_online++;
+		charger_status = powersupply_chg();
+
 		if(eBootModeNormal!=android_bootmode){
-			if(powersupply_dok())
-				charger_online++;
-			if(powersupply_uok())
-				charger_online++;
-			charger_status = powersupply_chg();
 			if(!charger_online||!charger_status)
 				android_bootmode = eBootModeNormal;
 		}
