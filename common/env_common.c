@@ -237,6 +237,12 @@ void set_default_env(void)
 #endif
 	env_crc_update ();
 	gd->env_valid = 1;
+
+	
+	#ifdef CONFIG_ENV_AUTOSAVE
+	puts ("Auto Saving environment\n");
+	saveenv ();
+	#endif
 }
 
 void env_relocate (void)
