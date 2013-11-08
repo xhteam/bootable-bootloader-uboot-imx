@@ -1565,8 +1565,9 @@ void setup_splash_image(void)
 {
 	char *s;
 	ulong addr;
-	long size;
+	unsigned long size=0;
 	unsigned long logo;
+	bmp_t splashbmp;
 	logo = CONFIG_SYS_LOAD_ADDR;	
 	if(eBootModeCharger==android_bootmode){
 		//in charger-only mode,we don't want to display any content in bootloader step
@@ -1575,15 +1576,15 @@ void setup_splash_image(void)
 		return;
 	}
 	run_command("mmc dev 3",0);
-	size=bmp_manager_readbmp("bmp.splash",logo,0x20000000);
-	if(size<0){
-		size =0;	
-	}else{
-		size=size*512;
+	if(!bmp_manager_getbmp("bmp.splash",&splashbmp)){
+		size = splashbmp.size;
+		bmp_manager_readbmp("bmp.splash",logo,0x20000000);
 	}
-
+	
 	if(!size)
 		setenv("splashimage",0);
+	else
+		setenv("splashimage","0x30000000");//copy from config file,to avoid splashimage env is cleared
 	
 	s = getenv("splashimage");
 
@@ -1934,11 +1935,13 @@ static int do_batterybmp(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	char buffer[16];
     int lvl=0;
     u8* bmp = CONFIG_SYS_LOAD_ADDR;
+	bmp_t batbmp;
     if(argc>1)
         lvl = simple_strtol(argv[1],0,10);
 	sprintf(buffer,"bmp.bat%d",lvl);
-	if(bmp_manager_readbmp(buffer,bmp,0x2000000)<=0)
-		bmp = bmp_bat0;
+	if(!bmp_manager_getbmp(buffer,&batbmp)){
+		bmp_manager_readbmp(buffer,bmp,0x2000000);
+	}else bmp = bmp_bat0;
 
 	lcd_screen_clear();
 	
@@ -2170,15 +2173,14 @@ int misc_init_r (void)
 			saveenv();
 		}
 		if((soc_low&&!charger_online)||bat_low_force){
-			long size;
-			size=bmp_manager_readbmp("bmp.bat0",CONFIG_SYS_LOAD_ADDR,0x2000000);
+			bmp_t batbmp;
 			lcd_screen_clear();
-			if(size>0){
+			if(!bmp_manager_getbmp("bmp.bat0",&batbmp)){
+				bmp_manager_readbmp("bmp.bat0",CONFIG_SYS_LOAD_ADDR,0x2000000);
 				draw_bmp(CONFIG_SYS_LOAD_ADDR,0);
 			}else {
-				draw_bmp(bmp_bat0,0);				
+				draw_bmp(bmp_bat0,0);
 			}
-
 			sdelay(5);			
 			//shutdown whole machine now
 			run_command("shutdown", 0);
