@@ -2130,6 +2130,8 @@ void setup_splash_image(void)
 
 	if(!size)
 		setenv("splashimage",0);
+	else
+		setenv("splashimage","0x30000000");//copy from config file,to avoid splashimage env is cleared
 
 	s = getenv("splashimage");
 

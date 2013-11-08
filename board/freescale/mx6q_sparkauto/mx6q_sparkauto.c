@@ -1784,9 +1784,10 @@ void setup_splash_image(void)
 		size = splashbmp.size;
 		bmp_manager_readbmp("bmp.splash",logo,0x20000000);
 	}
-
 	if(!size)
-		setenv("splashimage",0);
+		setenv("splashimage",0);	
+	else
+		setenv("splashimage","0x30000000");//copy from config file,to avoid splashimage env is cleared
 
 	s = getenv("splashimage");
 
