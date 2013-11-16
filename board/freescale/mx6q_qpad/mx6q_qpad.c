@@ -2099,7 +2099,7 @@ int misc_init_r (void)
 		char* env;
 		iomux_v3_cfg_t mx6q_power_pads[] = {
 			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
-			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUS_100K_DOWN|PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
+			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
 			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
 			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
 			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
