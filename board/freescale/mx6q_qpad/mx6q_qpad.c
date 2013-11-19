@@ -1817,6 +1817,7 @@ static const char* board_identity(void){
 	};
 	int id=mx6_board_id();
 
+	#if 0
 	//check board type
 	if(!id){
 		//assign id per hardware GPIO settings
@@ -1827,6 +1828,8 @@ static const char* board_identity(void){
 		id=(gpio_get_value(BOARD_ID_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
 		id+=0xb;
 	}
+	#endif
+	
 	if(id>0xB)
 		id=0;
 	return ids[id];
@@ -1845,6 +1848,7 @@ static const char* board_revision(void){
 	int id=mx6_board_id();
 	int rev=mx6_board_rev();
 
+	#if 0
 	//check board type
 	if(!id){
 		//assign revision per hardware GPIO settings
@@ -1857,6 +1861,8 @@ static const char* board_revision(void){
 		gpio_direction_input(BOARD_REV_IO3);
 		rev=(gpio_get_value(BOARD_REV_IO3)<<2)+(gpio_get_value(BOARD_REV_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
 	}
+	#endif
+	
 	if(rev>0x4)
 		rev=5;
 	return revs[rev];
