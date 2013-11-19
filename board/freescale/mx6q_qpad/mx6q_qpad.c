@@ -1816,19 +1816,6 @@ static const char* board_identity(void){
 		"QPad",	//0xB
 	};
 	int id=mx6_board_id();
-
-	#if 0
-	//check board type
-	if(!id){
-		//assign id per hardware GPIO settings
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_7__GPIO_1_7));
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_17__GPIO_7_12));
-		gpio_direction_input(BOARD_ID_IO1);
-		gpio_direction_input(BOARD_ID_IO2);
-		id=(gpio_get_value(BOARD_ID_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
-		id+=0xb;
-	}
-	#endif
 	
 	if(id>0xB)
 		id=0;
@@ -1838,6 +1825,7 @@ static const char* board_identity(void){
 static const char* board_revision(void){
 	static const char* revs[] =
 	{
+		"Unkown",
 		"RevA",
 		"RevB",
 		"RevC",
@@ -1845,25 +1833,9 @@ static const char* board_revision(void){
 		"RevE",
 		"Unknown",//0x5 maximum E is enough?
 	};	
-	int id=mx6_board_id();
 	int rev=mx6_board_rev();
-
-	#if 0
-	//check board type
-	if(!id){
-		//assign revision per hardware GPIO settings
-		rev = 0;
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_2__GPIO_1_2));
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4));
-		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5));
-		gpio_direction_input(BOARD_REV_IO1);
-		gpio_direction_input(BOARD_REV_IO2);
-		gpio_direction_input(BOARD_REV_IO3);
-		rev=(gpio_get_value(BOARD_REV_IO3)<<2)+(gpio_get_value(BOARD_REV_IO2)<<1)+gpio_get_value(BOARD_ID_IO1);
-	}
-	#endif
 	
-	if(rev>0x4)
+	if(rev>5)
 		rev=5;
 	return revs[rev];
 	
