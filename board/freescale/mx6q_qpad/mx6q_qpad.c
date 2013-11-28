@@ -1841,14 +1841,6 @@ static const char* board_revision(void){
 	
 }
 
-static int powerkey_detect(void){
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D29__GPIO_3_29));	
-	gpio_direction_input(KEY_POWER_IO);
-	if(gpio_get_value(KEY_POWER_IO))
-		return 1;
-	return 0;
-}
-
 static void sdelay(int s){
   s*=1000;
   while(s>0){
