@@ -1426,11 +1426,8 @@ void lcd_enable(void)
 	#error "power_on_and_reset_mipi_panel:put me on MX6DL"
 #endif
 
-	
 	mipi_dsi_enable();
-#endif
-	/*add by allenyao end*/
-
+#else //ldb
 	/*
 	 * LVDS0 mux to IPU1 DI0.
 	 * LVDS1 mux to IPU1 DI1.
@@ -1444,6 +1441,10 @@ void lcd_enable(void)
 		writel(0x40C, IOMUXC_BASE_ADDR + 0x8);
 	else
 		writel(0x201, IOMUXC_BASE_ADDR + 0x8);
+
+#endif
+
+
 }
 #endif
 
