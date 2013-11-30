@@ -749,7 +749,6 @@
 #define mx6_chip_is_solo()      chip_is_type(fsl_system_rev, CHIP_TYPE_SOLO)
 #define mx6_chip_is_sololite()	chip_is_type(fsl_system_rev, CHIP_TYPE_SOLOLITE)
 
-#define mx6_board_id()	((fsl_system_rev>>20)&0xF)
 #define mx6_board_rev()	((fsl_system_rev>>8)&0xF)
 
 #define mx6_chip_dq_name	"i.MX6Q"
@@ -819,6 +818,7 @@ extern int is_soc_rev(int rev);
 extern enum boot_device get_boot_device(void);
 extern void fsl_set_system_rev(void);
 extern int cpu_is_mx6q(void);
+int mx6_board_id(void);
 
 #endif /* __ASSEMBLER__*/
 

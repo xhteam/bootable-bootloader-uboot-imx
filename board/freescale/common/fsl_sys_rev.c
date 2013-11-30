@@ -44,15 +44,6 @@ unsigned int fsl_system_rev;
  *     0x61: i.MX6 Solo/DualLite
  *     0x60: i.MX6 SoloLite
  * 
- * bit 23-20:Board Identification (type) 
- * 0x0 : Unknown
- * 0x1 : Sabre-AI (ARD)
- * 0x2 : Smart Device (SD)
- * 0x3 : Quick-Start Board (QSB)
- * 0x4 : SoloLite EVK (SL-EVK)
- * 0x6 : HDMI Dongle
- * 0xA : SparkAuto
- * 0xB : QPad
  */
 void fsl_set_system_rev(void)
 {
@@ -129,9 +120,27 @@ void fsl_set_system_rev(void)
 		break;
 	}
 
-	//assign board type
-	fsl_system_rev |= (((board_type>>12)&0xF) << 20);
 #endif
+}
+
+/** 
+* bit 23-20:Board Identification (type) 
+* 0x0 : Unknown
+* 0x1 : Sabre-AI (ARD)
+* 0x2 : Smart Device (SD)
+* 0x3 : Quick-Start Board (QSB)
+* 0x4 : SoloLite EVK (SL-EVK)
+* 0x6 : HDMI Dongle
+* 0xA : SparkAuto
+* 0xB : QPad
+*/
+int mx6_board_id(void)
+{
+	u32 board_type=0;
+#ifdef CONFIG_CMD_IMXOTP
+		imx_otp_read_one_u32(0x26, &board_type);
+#endif
+	return (((board_type>>12)&0xF) << 20);
 }
 
 int cpu_is_mx6q()
