@@ -140,7 +140,7 @@ int mx6_board_id(void)
 #ifdef CONFIG_CMD_IMXOTP
 		imx_otp_read_one_u32(0x26, &board_type);
 #endif
-	return (((board_type>>12)&0xF) << 20);
+	return ((board_type>>12)&0xF);
 }
 
 int cpu_is_mx6q()
