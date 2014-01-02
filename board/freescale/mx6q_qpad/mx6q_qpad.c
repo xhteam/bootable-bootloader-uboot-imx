@@ -115,7 +115,7 @@ static int bmp_bat0_size = sizeof(bmp_bat0);
 
 static enum boot_device boot_dev;
 
-//#define ENABLE_KEYPAD_SHORTCUT
+#define ENABLE_KEYPAD_SHORTCUT
 #define BOARD_QPAD_REVA 0x1
 #define BOARD_QPAD_REVB 0x2
 #define BOARD_QPAD_REVC 0x3
