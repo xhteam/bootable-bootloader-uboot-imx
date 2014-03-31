@@ -3346,7 +3346,8 @@ mx6q_sparkauto_android_config : unconfig
 		}
 	@$(MKCONFIG) $(@:_config=) arm arm_cortexa8 mx6q_sparkauto freescale mx6
 
-mx6q_qpad_android_config: unconfig
+mx6q_qpad_android_config		\
+mx6dl_qpad_android_config	: unconfig
 	@[ -z "$(findstring iram_,$@)" ] || \
 		{ echo "TEXT_BASE = 0x00907000" >$(obj)board/freescale/mx6q_qpad/config.tmp ; \
 		  echo "... with iram configuration" ; \

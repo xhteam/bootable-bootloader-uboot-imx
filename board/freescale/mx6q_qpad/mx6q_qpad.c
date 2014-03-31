@@ -1424,10 +1424,10 @@ void lcd_enable(void)
 		reg &= ~(0x0000030);
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
-#if defined(CONFIG_MX6Q)
+#if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
 	power_on_and_reset_mipi_panel_6Q();
 #elif defined(CONFIG_MX6DL)
-	#error "power_on_and_reset_mipi_panel:put me on MX6DL"
+	#error "unsupported machine"
 #endif
 
 	mipi_dsi_enable();
@@ -1619,6 +1619,11 @@ int board_init(void)
 	reg |= (1 << 3);
 	writel(reg, SNVS_BASE_ADDR + 0x4c);/*clear LPSR*/
 
+	/* Toming: fixed self power on randomly */
+	reg = readl(SNVS_BASE_ADDR + 0x38);
+	reg &= ~(3 << 18); reg |= (2 << 18);
+	writel(reg, SNVS_BASE_ADDR + 0x38);
+	
 	mxc_iomux_v3_init((void *)IOMUXC_BASE_ADDR);
 	setup_boot_device();
 	fsl_set_system_rev();
