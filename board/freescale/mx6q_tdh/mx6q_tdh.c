@@ -115,8 +115,9 @@ static int bmp_bat0_size = sizeof(bmp_bat0);
 
 static enum boot_device boot_dev;
 
-//#define ENABLE_KEYPAD_SHORTCUT
-#warning "FIXME:bootloader keypad shortcut is disabled currently"
+#define ENABLE_KEYPAD_SHORTCUT
+
+#define BOARD_REV_INVALID 0x0
 #define BOARD_TDH_REVA 0x1
 #define BOARD_TDH_REVB 0x2
 #define BOARD_TDB_REVC 0x3
@@ -130,13 +131,11 @@ static enum boot_device boot_dev;
 		PAD_CTL_PUS_100K_UP | PAD_CTL_SPEED_MED |		\
 		PAD_CTL_DSE_40ohm   | PAD_CTL_SRE_SLOW  | PAD_CTL_HYS)
 
-
-#define KEY_MENU_IO IMX_GPIO_NR(1, 2) /*KEY1*/
-#define KEY_HOME_IO IMX_GPIO_NR(1, 4) /*KEY2*/
-#define KEY_BACK_IO IMX_GPIO_NR(1, 5) /*KEY3*/
-
-
-#define USB_OTG_PWR IMX_GPIO_NR(3, 22)
+#define KEY_HOT_KEY1_IO IMX_GPIO_NR(4,14)
+#define KEY_HOT_KEY2_IO IMX_GPIO_NR(4,11)
+#define KEY_PTT_IO		IMX_GPIO_NR(4,10)
+#define KEY_VOLPLUS_IO	IMX_GPIO_NR(6,9)
+#define KEY_VOLMINUS_IO	IMX_GPIO_NR(6,10)
 
 
 #ifdef CONFIG_VIDEO_MX5
@@ -313,6 +312,15 @@ static void __udelay(int time)
 		}
 	}
 }
+
+static void sdelay(int s){
+  s*=1000;
+  while(s>0){
+	s--;
+	__udelay(1000);
+  }
+}
+
 
 int dram_init(void)
 {
@@ -961,12 +969,15 @@ msleep(int count)
 }
 #if MIPI_DSI
 
-static void power_on_and_reset_mipi_panel_6Q(void)
+static void power_on_and_reset_mipi_panel(void)
 {
+#define MX6_LCD_POWER_IO IMX_GPIO_NR(2,6)
+#define MX6_LCD_RESET_IO IMX_GPIO_NR(6,16)
+#define MX6_LCD_BL_POWER_IO IMX_GPIO_NR(4,15)
 	int reg;
 
 	//LCD PWR
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_D6__GPIO_2_6);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_D6__GPIO_2_6));
 	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
@@ -975,7 +986,7 @@ static void power_on_and_reset_mipi_panel_6Q(void)
 	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
 
 	//LCD_RST_B
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_CS3__GPIO_6_16));
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
@@ -992,8 +1003,8 @@ static void power_on_and_reset_mipi_panel_6Q(void)
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
 	msleep(200);
 
-	//LCD_BL_PWR_EN	
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW4__GPIO_4_15);
+	//LCD_BL_PWR_EN
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW4__GPIO_4_15));
 	reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
@@ -1418,9 +1429,9 @@ void lcd_enable(void)
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
-	power_on_and_reset_mipi_panel_6Q();
-#elif defined(CONFIG_MX6DL)
-	#error "unsupported machine"
+	power_on_and_reset_mipi_panel();
+#else
+	#error "unsupported machine for mipi panel"
 #endif
 
 	mipi_dsi_enable();
@@ -1647,6 +1658,68 @@ int board_init(void)
 	return 0;
 }
 
+#ifdef ENABLE_KEYPAD_SHORTCUT
+enum{
+	eKeyPadBootModeNormal=0,
+	eKeyPadBootModeRecovery,
+	eKeyPadBootModeFastboot,
+	eKeyPadBootModeAutoupdate,
+	eKeyPadBootModeMfg,
+	eKeyPadBootModeMax
+};
+
+static int stablize_keypad_bootmode(int data_io,int detect_state){
+	int t=0;
+	int state;
+	detect_state=detect_state?1:0;
+	//default stablize time is 3s
+	do{
+		sdelay(1);
+		state=gpio_get_value(data_io);
+		state=state?1:0;
+		t++;
+	}while(state==detect_state&&t<3);
+
+	return (t>=3);
+}
+static int keypad_detect_bootmode(void){
+	static int keypad_io_init=0;
+	int detect_state;
+	int keypad_bootmode = eKeyPadBootModeNormal;
+	if(!keypad_io_init++){
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_KEY_COL4__GPIO_4_14),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_KEY_ROW2__GPIO_4_11),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_KEY_COL2__GPIO_4_10),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_NANDF_WP_B__GPIO_6_9),MX6_KEY_PAD_CTRL));
+		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_NANDF_RB0__GPIO_6_10),MX6_KEY_PAD_CTRL));
+		gpio_direction_input(KEY_HOT_KEY1_IO);
+		gpio_direction_input(KEY_HOT_KEY2_IO);
+		gpio_direction_input(KEY_PTT_IO);
+		gpio_direction_input(KEY_VOLMINUS_IO);
+		gpio_direction_input(KEY_VOLPLUS_IO);
+	}
+
+	//check mode according to android priority
+	if(!(detect_state=gpio_get_value(KEY_HOT_KEY1_IO))&&
+		stablize_keypad_bootmode(KEY_HOT_KEY1_IO,detect_state)){
+		printf("Recovery mode detected from keypad\n");
+		keypad_bootmode = eKeyPadBootModeRecovery;
+	}else if(!(detect_state=gpio_get_value(KEY_HOT_KEY2_IO))&&
+		stablize_keypad_bootmode(KEY_HOT_KEY2_IO,detect_state)){
+		printf("Fastboot mode detected from keypad\n");
+		keypad_bootmode = eKeyPadBootModeFastboot;
+	}else if(!(detect_state=gpio_get_value(KEY_VOLMINUS_IO))&&
+		stablize_keypad_bootmode(KEY_VOLMINUS_IO,detect_state)){
+		printf("Autoupdate mode detected from keypad\n");
+		keypad_bootmode = eKeyPadBootModeAutoupdate;
+	}else if(!(detect_state=gpio_get_value(KEY_VOLPLUS_IO))&&
+		stablize_keypad_bootmode(KEY_VOLPLUS_IO,detect_state)){
+		printf("Mfg mode detected from keypad\n");
+		keypad_bootmode = eKeyPadBootModeMfg;
+	}
+	return keypad_bootmode;
+}
+#endif
 
 #ifdef CONFIG_ANDROID_RECOVERY
 
@@ -1669,23 +1742,9 @@ int check_recovery_cmd_file(void)
 
 	#ifdef ENABLE_KEYPAD_SHORTCUT
 	if(!recovery_switch){
-		
-		if(mx6_board_rev()>BOARD_QPAD_REVA){
-			mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_2__GPIO_1_2),MX6_KEY_PAD_CTRL));
-			mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4),MX6_KEY_PAD_CTRL));
-			mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5),MX6_KEY_PAD_CTRL));
-			gpio_direction_input(KEY_MENU_IO);
-			gpio_direction_input(KEY_HOME_IO);
-			gpio_direction_input(KEY_BACK_IO);
-
-			if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_HOME_IO)) {
-					if(!gpio_get_value(KEY_BACK_IO)){
-						printf("keypad not connected??\n");
-					}else {
-						printf("Key recovery detected!\nEnter recovery mode!\n");
-						recovery_switch++;
-					}
-			}
+		if(mx6_board_rev()!=BOARD_REV_INVALID){
+			if(eKeyPadBootModeRecovery==keypad_detect_bootmode())
+				recovery_switch++;
 		}
 	}
 	#endif
@@ -1708,31 +1767,17 @@ int check_recovery_cmd_file(void)
 
 #ifdef CONFIG_FASTBOOT
 int fastboot_mode_detect(void){
-	int button_pressed = 0;
+	int fastboot_switch = 0;
 
 	#ifdef ENABLE_KEYPAD_SHORTCUT
-	if(mx6_board_rev()>BOARD_QPAD_REVA){
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_2__GPIO_1_2),MX6_KEY_PAD_CTRL));
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4),MX6_KEY_PAD_CTRL));
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5),MX6_KEY_PAD_CTRL));
-
-		gpio_direction_input(KEY_MENU_IO);
-		gpio_direction_input(KEY_HOME_IO);
-		gpio_direction_input(KEY_BACK_IO);
-
-		if (!gpio_get_value(KEY_HOME_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
-			if(!gpio_get_value(KEY_MENU_IO)){
-				printf("keypad not connected??\n");
-			}else {
-				button_pressed = 1;
-				printf("Fastboot key pressed\n");
-			}
-		}
+	if(mx6_board_rev()!=BOARD_REV_INVALID){
+		if(eKeyPadBootModeFastboot==keypad_detect_bootmode())
+			fastboot_switch++;
 	}
 	#endif
 
 
-	return button_pressed;
+	return fastboot_switch;
 	
 }
 
@@ -1740,38 +1785,34 @@ int fastboot_mode_detect(void){
 
 #ifdef CONFIG_AUTOUPDATER
 int autoupdate_mode_detect(void){
-	int button_pressed = 0;
+	int autoupdate_switch = 0;
 
 	#ifdef ENABLE_KEYPAD_SHORTCUT
-	
-	if(mx6_board_rev()>BOARD_QPAD_REVA){
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_2__GPIO_1_2),MX6_KEY_PAD_CTRL));
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4),MX6_KEY_PAD_CTRL));
-		mxc_iomux_v3_setup_pad(NEW_PAD_CTRL(MX6X_IOMUX(PAD_GPIO_5__GPIO_1_5),MX6_KEY_PAD_CTRL));
-		gpio_direction_input(KEY_MENU_IO);
-		gpio_direction_input(KEY_HOME_IO);
-		gpio_direction_input(KEY_BACK_IO);
-
-		if (!gpio_get_value(KEY_MENU_IO)&&!gpio_get_value(KEY_BACK_IO)) { 
-			if(!gpio_get_value(KEY_HOME_IO)){
-				printf("keypad not connected??\n");
-			}else {
-				button_pressed = 1;
-				printf("Autoupdate key pressed\n");
-			}
-		}
+	if(mx6_board_rev()!=BOARD_REV_INVALID){
+		if(eKeyPadBootModeAutoupdate==keypad_detect_bootmode())
+			autoupdate_switch++;
 	}
 	#endif
 
-	return button_pressed;
+	return autoupdate_switch;
 	
 }
 #endif
 
 #ifdef BOARD_LATE_INIT
+extern int mfg_check_and_clean_flag(void);
 int board_late_init(void)
 {
-	int ret = 0;	
+	int ret = 0;
+	if(mfg_check_and_clean_flag()){
+		run_command("download", 0);
+	}
+	#ifdef ENABLE_KEYPAD_SHORTCUT
+	if(mx6_board_rev()!=BOARD_REV_INVALID){
+		if(eKeyPadBootModeMfg==keypad_detect_bootmode())
+		run_command("download", 0);
+	}
+	#endif
 	return ret;
 }
 #endif
@@ -1851,13 +1892,6 @@ static const char* board_revision(void){
 	
 }
 
-static void sdelay(int s){
-  s*=1000;
-  while(s>0){
-  	s--;
-	__udelay(1000);
-  }
-}
 
 static int draw_bmp(u8* bmp_image,int mode){
     int ret=0;
@@ -2048,11 +2082,7 @@ int checkboard(void)
 void udc_pins_setting(void)
 {
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_1__USBOTG_ID));	
-	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_EIM_D22__GPIO_3_22));
-
-	/* USB_OTG_PWR = 0 */
-	gpio_direction_output(USB_OTG_PWR, 0);
-
+	//no otg host feature on tdh board
 	//Set GPIO_1 as OTG_ID pin
 	mxc_iomux_set_gpr_register(1, 13, 1, 1);
 
@@ -2080,27 +2110,21 @@ int misc_init_r (void)
 		iomux_v3_cfg_t mx6q_power_pads[] = {
 			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
 			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
-			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
+			0,  /* UOK_B */
 			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
-			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
-			NEW_PAD_CTRL(MX6Q_PAD_KEY_ROW2__GPIO_4_11,PAD_CTL_DSE_DISABLE), /*Batter Detection*/
+			MX6Q_PAD_EIM_D16__GPIO_3_16,/*Battery Alert IRQ*/
+			0, /*Batter Detection*/
 		};
 		qpower_charger_pdata qpp={
 			.dok	= IMX_GPIO_NR(2,24),
-			.uok	= IMX_GPIO_NR(3,17),
+			.uok	= 0,
 			.chg	= IMX_GPIO_NR(3,23),
 			.flt	= IMX_GPIO_NR(5,2),
-			.det	= IMX_GPIO_NR(4,11),		
+			.det	= 0,
 
 			.fuelgauge_bus = 0,
 			.fuelgauge_addr = 0x36,
 		};
-		#warning "FIXME: TDH charger pin definition refine?"
-		#if 0
-		if(mx6_board_rev()>BOARD_QPAD_REVA){
-			mx6q_power_pads[4] = MX6Q_PAD_EIM_D16__GPIO_3_16;
-		}
-		#endif
 		mxc_iomux_v3_setup_multiple_pads(mx6q_power_pads,
 			sizeof(mx6q_power_pads) /
 			sizeof(mx6q_power_pads[0]));

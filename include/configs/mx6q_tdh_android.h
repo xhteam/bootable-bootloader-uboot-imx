@@ -81,14 +81,11 @@
 		"lvds_num=1\0"
 
 
-//add by allenyao 
 #define CONFIG_CONSOLE_PASSWORD
 #define CONFIG_MISC_INIT_R
 #define CONFIG_MD5
 #define CONFIG_AUTOBOOT_KEYED	1
 #define CONFIG_AUTOBOOT_DELAY_STR "\x1b\x1b"
-//#define CONFIG_CFB_CONSOLE	1
-//add by allenyao end
 
 #define CONFIG_AUTOUPDATER
 #define CONFIG_AUTOUPDATER_SEQUENCER \
