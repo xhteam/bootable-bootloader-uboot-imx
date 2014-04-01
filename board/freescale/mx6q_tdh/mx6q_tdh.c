@@ -134,14 +134,6 @@ static enum boot_device boot_dev;
 #define KEY_MENU_IO IMX_GPIO_NR(1, 2) /*KEY1*/
 #define KEY_HOME_IO IMX_GPIO_NR(1, 4) /*KEY2*/
 #define KEY_BACK_IO IMX_GPIO_NR(1, 5) /*KEY3*/
-#define KEY_POWER_IO IMX_GPIO_NR(3, 29) /*POWER BUTTON*/ 
-
-#define BOARD_REV_IO1 IMX_GPIO_NR(1, 2)
-#define BOARD_REV_IO2 IMX_GPIO_NR(1, 2)
-#define BOARD_REV_IO3 IMX_GPIO_NR(1, 2)
-
-#define BOARD_ID_IO1 IMX_GPIO_NR(1, 7)
-#define BOARD_ID_IO2 IMX_GPIO_NR(7, 12)
 
 
 #define USB_OTG_PWR IMX_GPIO_NR(3, 22)
@@ -1831,10 +1823,11 @@ static const char* board_identity(void){
 		"Unknown",
 		"SparkAuto",
 		"QPad",	//0xB
+		"TDH",//0xC
 	};
 	int id=mx6_board_id();
 	
-	if(id>0xB)
+	if(id>0xC)
 		id=0;
 	return ids[id];
 }

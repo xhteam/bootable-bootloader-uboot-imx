@@ -89,6 +89,7 @@ void fsl_set_system_rev(void)
      	 * 0x6 : HDMI Dongle
 	 * 0xA : SparkAuto
 	 * 0xB : QPad
+	 * 0xC : TDH
 	 *
 	 * bit 8-11: Board Revision ID
 	 * 0x0 : Unknown or latest revision
@@ -133,6 +134,7 @@ void fsl_set_system_rev(void)
 * 0x6 : HDMI Dongle
 * 0xA : SparkAuto
 * 0xB : QPad
+* 0xC : TDH
 */
 int mx6_board_id(void)
 {
