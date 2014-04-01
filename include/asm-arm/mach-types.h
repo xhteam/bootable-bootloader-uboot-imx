@@ -3263,6 +3263,7 @@ extern unsigned int __machine_arch_type;
 #define MACH_TYPE_MX6SL_EVK            4307
 #define MACH_TYPE_MX6Q_SPARKAUTO       3990
 #define MACH_TYPE_MX6Q_QPAD	       	   3991
+#define MACH_TYPE_MX6Q_TDH             3992
 
 #ifdef CONFIG_ARCH_EBSA110
 # ifdef machine_arch_type
