@@ -24,6 +24,15 @@
 
 #include "mx6q_common.h"
 
+/* TDH board memory config
+ * 32bit 4Gb per cs ,8Gb two cs
+ * LPDDR2 @400MHz 
+ * Single Channel
+*/
+#define CONFIG_LPDDR2
+#define CONFIG_DDR_32BIT /* for DDR 32bit */
+
+
 #define CONFIG_USB_DEVICE
 #define CONFIG_IMX_UDC		       1
 #define CONFIG_FASTBOOT		       1

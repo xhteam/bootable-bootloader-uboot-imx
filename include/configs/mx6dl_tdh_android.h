@@ -23,7 +23,7 @@
 #define MX6DL_TDH_ANDROID_H
 
 #include <asm/arch/mx6.h>
-#include "mx6dl_tdh.h"
+#include "mx6dl_common.h"
 
 #define CONFIG_USB_DEVICE
 #define CONFIG_IMX_UDC		       1
