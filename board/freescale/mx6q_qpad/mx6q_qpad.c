@@ -321,6 +321,15 @@ static void __udelay(int time)
 	}
 }
 
+static void sdelay(int s){
+  s*=1000;
+  while(s>0){
+	s--;
+	__udelay(1000);
+  }
+}
+
+
 int dram_init(void)
 {
 	/*
@@ -340,31 +349,18 @@ int dram_init(void)
 
 static void setup_uart(void)
 {
-#if defined CONFIG_MX6Q
 	/* UART1 TXD */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT10__UART1_TXD);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT10__UART1_TXD));
 
 	/* UART1 RXD */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT11__UART1_RXD);
-#elif defined CONFIG_MX6DL
-	/* UART1 TXD */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT10__UART1_TXD);
-
-	/* UART1 RXD */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT11__UART1_RXD);
-#endif
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT11__UART1_RXD));
 }
 
 #ifdef CONFIG_VIDEO_MX5
 void setup_lvds_poweron(void)
 {
 	int reg;
-	/* AUX_5V_EN: GPIO(6, 10) */
-#ifdef CONFIG_MX6DL
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_NANDF_RB0__GPIO_6_10);
-#else
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_RB0__GPIO_6_10);
-#endif
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_RB0__GPIO_6_10));
 
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 10);
@@ -392,18 +388,11 @@ static void setup_i2c(unsigned int module_base)
 
 	switch (module_base) {
 	case I2C1_BASE_ADDR:
-#if defined CONFIG_MX6Q
 		/* i2c1 SDA */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT8__I2C1_SDA);
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT8__I2C1_SDA));
 
 		/* i2c1 SCL */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT9__I2C1_SCL);
-#elif defined CONFIG_MX6DL
-		/* i2c1 SDA */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT8__I2C1_SDA);
-		/* i2c1 SCL */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT9__I2C1_SCL);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT9__I2C1_SCL));
 
 		/* Enable i2c clock */
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR2);
@@ -412,19 +401,11 @@ static void setup_i2c(unsigned int module_base)
 
 		break;
 	case I2C2_BASE_ADDR:
-#if defined CONFIG_MX6Q
 		/* i2c2 SDA */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW3__I2C2_SDA);
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW3__I2C2_SDA));
 
 		/* i2c2 SCL */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL3__I2C2_SCL);
-#elif defined CONFIG_MX6DL
-		/* i2c2 SDA */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_ROW3__I2C2_SDA);
-
-		/* i2c2 SCL */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_COL3__I2C2_SCL);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_COL3__I2C2_SCL));
 
 		/* Enable i2c clock */
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR2);
@@ -433,18 +414,10 @@ static void setup_i2c(unsigned int module_base)
 
 		break;
 	case I2C3_BASE_ADDR:
-#if defined CONFIG_MX6Q
 		/* GPIO_3 for I2C3_SCL */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_3__I2C3_SCL);
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_3__I2C3_SCL));
 		/* GPIO_6 for I2C3_SDA */
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_6__I2C3_SDA);
-
-#elif defined CONFIG_MX6DL
-		/* GPIO_3 for I2C3_SCL */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_3__I2C3_SCL);
-		/* GPIO_6 for I2C3_SDA */
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_6__I2C3_SDA);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_6__I2C3_SDA));
 		/* Enable i2c clock */
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR2);
 		reg |= 0xC00;
@@ -465,11 +438,7 @@ static void mx6q_i2c_gpio_scl_direction(int bus, int output)
 
 	switch (bus) {
 	case 1:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT9__GPIO_5_27);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT9__GPIO_5_27);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT9__GPIO_5_27));
 		reg = readl(GPIO5_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C1_SCL_GPIO5_27_BIT_MASK;
@@ -478,11 +447,7 @@ static void mx6q_i2c_gpio_scl_direction(int bus, int output)
 		writel(reg, GPIO5_BASE_ADDR + GPIO_GDIR);
 		break;
 	case 2:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_COL3__GPIO_4_12);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_COL3__GPIO_4_12);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_COL3__GPIO_4_12));
 		reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C2_SCL_GPIO4_12_BIT_MASK;
@@ -491,11 +456,7 @@ static void mx6q_i2c_gpio_scl_direction(int bus, int output)
 		writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
 		break;
 	case 3:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_3__GPIO_1_3);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_3__GPIO_1_3);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_3__GPIO_1_3));
 		reg = readl(GPIO1_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C3_SCL_GPIO1_3_BIT_MASK;
@@ -513,11 +474,7 @@ static void mx6q_i2c_gpio_sda_direction(int bus, int output)
 
 	switch (bus) {
 	case 1:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_CSI0_DAT8__GPIO_5_26);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_CSI0_DAT8__GPIO_5_26);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_CSI0_DAT8__GPIO_5_26));
 		reg = readl(GPIO5_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C1_SDA_GPIO5_26_BIT_MASK;
@@ -526,11 +483,7 @@ static void mx6q_i2c_gpio_sda_direction(int bus, int output)
 		writel(reg, GPIO5_BASE_ADDR + GPIO_GDIR);
 		break;
 	case 2:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW3__GPIO_4_13);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_KEY_ROW3__GPIO_4_13);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW3__GPIO_4_13));
 		reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C2_SDA_GPIO4_13_BIT_MASK;
@@ -538,11 +491,7 @@ static void mx6q_i2c_gpio_sda_direction(int bus, int output)
 			reg &= ~I2C2_SDA_GPIO4_13_BIT_MASK;
 		writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
 	case 3:
-#if defined CONFIG_MX6Q
-		mxc_iomux_v3_setup_pad(MX6Q_PAD_GPIO_6__GPIO_1_6);
-#elif defined CONFIG_MX6DL
-		mxc_iomux_v3_setup_pad(MX6DL_PAD_GPIO_6__GPIO_1_6);
-#endif
+		mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_6__GPIO_1_6));
 		reg = readl(GPIO1_BASE_ADDR + GPIO_GDIR);
 		if (output)
 			reg |= I2C3_SDA_GPIO1_6_BIT_MASK;
@@ -904,9 +853,12 @@ int usdhc_gpio_init(bd_t *bis)
 		++index) {
 		switch (index) {
 		case 0:
+			//don't init sdhc1 since we use it as non usdhc
+			/*
 			mxc_iomux_v3_setup_multiple_pads(usdhc1_pads,
 				sizeof(usdhc1_pads) /
 				sizeof(usdhc1_pads[0]));
+			*/
 			break;
 		case 1:
 			mxc_iomux_v3_setup_multiple_pads(usdhc2_pads,
@@ -968,12 +920,12 @@ msleep(int count)
 }
 #if MIPI_DSI
 
-static void power_on_and_reset_mipi_panel_6Q(void)
+static void power_on_and_reset_mipi_panel(void)
 {
 	int reg;
 
 	//LCD PWR
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_D6__GPIO_2_6);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_D6__GPIO_2_6));
 	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
@@ -982,7 +934,7 @@ static void power_on_and_reset_mipi_panel_6Q(void)
 	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
 
 	//LCD_RST_B
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_NANDF_CS3__GPIO_6_16);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_CS3__GPIO_6_16));
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
@@ -1000,7 +952,7 @@ static void power_on_and_reset_mipi_panel_6Q(void)
 	msleep(200);
 
 	//LCD_BL_PWR_EN	
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_KEY_ROW4__GPIO_4_15);
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW4__GPIO_4_15));
 	reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
@@ -1195,17 +1147,12 @@ void lcd_enable(void)
 	*/
 	g_ipu_hw_rev = IPUV3_HW_REV_IPUV3H;
 
-	imx_pwm_config(pwm0, 25000, 50000);
+	//def brightness is 120 on android
+	imx_pwm_config(pwm0, 24000, 50000);
 	imx_pwm_enable(pwm0);
 
-#if defined CONFIG_MX6Q
 	/* PWM backlight */
-	mxc_iomux_v3_setup_pad(MX6Q_PAD_SD1_DAT3__PWM1_PWMO);
-#elif defined CONFIG_MX6DL
-	/* PWM backlight */
-	mxc_iomux_v3_setup_pad(MX6DL_PAD_SD1_DAT3__PWM1_PWMO);
-#endif
-
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_SD1_DAT3__PWM1_PWMO));
 
 	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk/mipi_clk. */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
@@ -1401,7 +1348,7 @@ void lcd_enable(void)
 			DI_PCLK_PLL3, 26400000);
 	#elif defined CONFIG_MX6DL
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 156454);
+			DI_PCLK_PLL3, 26400000);
 	#endif
 #else
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
@@ -1425,12 +1372,9 @@ void lcd_enable(void)
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
-	power_on_and_reset_mipi_panel_6Q();
-#elif defined(CONFIG_MX6DL)
-	#error "unsupported machine"
-#endif
-
+	power_on_and_reset_mipi_panel();
 	mipi_dsi_enable();
+#endif	
 #else //ldb
 	/*
 	 * LVDS0 mux to IPU1 DI0.
@@ -1857,13 +1801,6 @@ static const char* board_revision(void){
 	
 }
 
-static void sdelay(int s){
-  s*=1000;
-  while(s>0){
-  	s--;
-	__udelay(1000);
-  }
-}
 
 static int draw_bmp(u8* bmp_image,int mode){
     int ret=0;
@@ -2083,13 +2020,13 @@ int misc_init_r (void)
 		int bat_low_threshold=5;
 		int bat_low_force=0;
 		char* env;
-		iomux_v3_cfg_t mx6q_power_pads[] = {
-			MX6Q_PAD_EIM_A25__GPIO_5_2,  /* CHG_FLT1_B */
-			NEW_PAD_CTRL(MX6Q_PAD_EIM_D23__GPIO_3_23,PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
-			MX6Q_PAD_EIM_D17__GPIO_3_17,  /* UOK_B */
-			MX6Q_PAD_EIM_CS1__GPIO_2_24,   /* DOK_B */
-			MX6Q_PAD_KEY_COL4__GPIO_4_14,	/*Battery Alert IRQ*/
-			NEW_PAD_CTRL(MX6Q_PAD_KEY_ROW2__GPIO_4_11,PAD_CTL_DSE_DISABLE), /*Batter Detection*/
+		iomux_v3_cfg_t mx6_power_pads[] = {
+			MX6X_IOMUX(PAD_EIM_A25__GPIO_5_2),  /* CHG_FLT1_B */
+			NEW_PAD_CTRL(MX6X_IOMUX(PAD_EIM_D23__GPIO_3_23),PAD_CTL_PUE|PAD_CTL_HYS), /* CHG_STATUS1_B */
+			MX6X_IOMUX(PAD_EIM_D17__GPIO_3_17),  /* UOK_B */
+			MX6X_IOMUX(PAD_EIM_CS1__GPIO_2_24),   /* DOK_B */
+			MX6X_IOMUX(PAD_KEY_COL4__GPIO_4_14),	/*Battery Alert IRQ*/
+			NEW_PAD_CTRL(MX6X_IOMUX(PAD_KEY_ROW2__GPIO_4_11),PAD_CTL_DSE_DISABLE), /*Batter Detection*/
 		};
 		qpower_charger_pdata qpp={
 			.dok	= IMX_GPIO_NR(2,24),
@@ -2102,11 +2039,11 @@ int misc_init_r (void)
 			.fuelgauge_addr = 0x36,
 		};
 		if(mx6_board_rev()>BOARD_QPAD_REVA){
-			mx6q_power_pads[4] = MX6Q_PAD_EIM_D16__GPIO_3_16;
+			mx6_power_pads[4] = MX6X_IOMUX(PAD_EIM_D16__GPIO_3_16);
 		}
-		mxc_iomux_v3_setup_multiple_pads(mx6q_power_pads,
-			sizeof(mx6q_power_pads) /
-			sizeof(mx6q_power_pads[0]));
+		mxc_iomux_v3_setup_multiple_pads(mx6_power_pads,
+			sizeof(mx6_power_pads) /
+			sizeof(mx6_power_pads[0]));
 		//init power supply 	
 		setup_i2c(CONFIG_FUELGAUGE_I2C_PORT);
 		powersupply_init(&qpp);
@@ -2230,3 +2167,4 @@ void *video_hw_init(void)
 }
 
 #endif
+
