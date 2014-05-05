@@ -79,7 +79,7 @@
 #define CONFIG_INITRD_TAG
 
 #define	CONFIG_EXTRA_ENV_SETTINGS					\
-		"serialnumber=1234567890"			\
+		"serialnumber=1234567890\0"			\
 		"netdev=eth0\0"						\
 		"ethprime=FEC0\0"					\
 		"password=9dd694e7e648d04b019c56ae7a58f01400000000000000000000000000000000\0" \
