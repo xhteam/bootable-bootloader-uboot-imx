@@ -97,6 +97,8 @@
 
 int MIPI_LCD_ICINIT(void);
 
+int mipi_panel_init(char** panel_name);
+
 #ifdef CONFIG_VIDEO_MX5
 #if MIPI_DSI
 extern unsigned char fsl_bmp_reversed_mipi_480x800[];

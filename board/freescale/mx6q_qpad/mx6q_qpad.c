@@ -106,7 +106,7 @@ enum {
 };
 static int android_bootmode=eBootModeNormal;
 static int system_boot_reason=eBootReasonPOR;
-
+static char* panel_name=NULL;
 static unsigned char bmp_bat0[]={
 	#include "bat0.inc"
 };
@@ -173,7 +173,7 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 
 #if MIPI_DSI
 static struct fb_videomode mipi_dsi = {/*add by allenyao*/
-	 "NT-QHD", 60, 540, 960, 30500/*ps*/,  //945,30500
+	 "mipi", 60, 540, 960, 30500/*ps*/,  //945,30500
 	 3, 3,
 	 60, 35,//5,20
 	 8,20,//18
@@ -920,21 +920,30 @@ msleep(int count)
 }
 #if MIPI_DSI
 
-static void power_on_and_reset_mipi_panel(void)
+#define LCD_PWR IMX_GPIO_NR(2,6)
+#define LCD_RESET IMX_GPIO_NR(6,16)
+#define LCD_BL_PWR IMX_GPIO_NR(4,15)
+static void panel_power_on(void)
 {
+
 	int reg;
 
 	//LCD PWR
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_D6__GPIO_2_6));
+	/*
 	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
 	reg = readl(GPIO2_BASE_ADDR + GPIO_DR);
 	reg &= ~(1 << 6);
-	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
+	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);*/
+	gpio_direction_output(LCD_PWR, 1);
+	msleep(10);
+	gpio_direction_output(LCD_PWR, 0);
 
 	//LCD_RST_B
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_CS3__GPIO_6_16));
+	/*
 	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
@@ -949,17 +958,27 @@ static void power_on_and_reset_mipi_panel(void)
 	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
 	reg |= (1 << 16);
 	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-	msleep(200);
+	*/
+	gpio_direction_output(LCD_RESET, 0);
+	msleep(10);
+	gpio_direction_output(LCD_RESET, 1);
+	msleep(20);
+}
 
+static void panel_bl_on(int on){
 	//LCD_BL_PWR_EN	
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW4__GPIO_4_15));
+	/*
 	reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg = readl(GPIO4_BASE_ADDR + GPIO_DR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_DR);
+	*/
+	gpio_direction_output(LCD_BL_PWR, on?1:0);
 }
+
 static void mipi_clk_enable(void)
 {
 	int reg;
@@ -1117,7 +1136,8 @@ static void mipi_dsi_enable()
 	msleep(5);
 	mipi_dsi_enable_controller();	
     msleep(5);
-	err = MIPILCD_ICINIT();
+	//err = MIPILCD_ICINIT();
+	err = mipi_panel_init(&panel_name);
 	if (err < 0) {
 		printf("lcd init failed\n");
 		return;
@@ -1146,6 +1166,8 @@ void lcd_enable(void)
 	* hw_rev 4: IPUV3H
 	*/
 	g_ipu_hw_rev = IPUV3_HW_REV_IPUV3H;
+
+	panel_bl_on(0);
 
 	//def brightness is 120 on android
 	imx_pwm_config(pwm0, 24000, 50000);
@@ -1372,8 +1394,9 @@ void lcd_enable(void)
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
-	power_on_and_reset_mipi_panel();
+	panel_power_on();
 	mipi_dsi_enable();
+	panel_bl_on(1);
 #endif	
 #else //ldb
 	/*
@@ -1753,6 +1776,12 @@ char* append_commandline_extra(char* cmdline){
 		strcat(newcmdline,buffer);
 	}
 	#endif
+	if(panel_name){
+		char buffer[128];
+		sprintf(buffer," panel=%s",panel_name);
+		strcat(newcmdline,buffer);
+	}
+
 	return newcmdline;
 }
 #endif
