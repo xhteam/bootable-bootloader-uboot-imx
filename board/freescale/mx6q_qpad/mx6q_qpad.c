@@ -937,8 +937,6 @@ static void panel_power_on(void)
 	reg = readl(GPIO2_BASE_ADDR + GPIO_DR);
 	reg &= ~(1 << 6);
 	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);*/
-	gpio_direction_output(LCD_PWR, 1);
-	msleep(10);
 	gpio_direction_output(LCD_PWR, 0);
 
 	//LCD_RST_B
