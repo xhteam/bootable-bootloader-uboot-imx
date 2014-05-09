@@ -203,6 +203,7 @@
  * @backlight_power:         A pointer to a function the drvier will call to
  *                           configure the power of MIPI LCD backlight
  */
+#if 0
 struct mipi_dsi_platform_data {
 	/* SoC hardware information. */
 	int	ipu_id;
@@ -222,7 +223,7 @@ struct mipi_dsi_platform_data {
 	void	 (*lcd_power)(int);
 	void	 (*backlight_power)(int);
 };
-
+#endif
  #include <common.h>
 
 #define BITS_PER_BYTE           8

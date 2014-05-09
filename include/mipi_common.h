@@ -1,3 +1,11 @@
+#ifndef MIPI_COMMON_H
+#define MIPI_COMMON_H
+#include <common.h>
+#include <linux/list.h>
+#include <linux/fb.h>
+#include <linux/mxcfb.h>
+#include <mipi_dsi.h>
+
 /* Copyright (C) 2012-2013 Freescale Semiconductor, Inc.
 * This file is the header file for MIPI DSI, the addr of MIPI DSI regs
 */
@@ -95,9 +103,20 @@
 #define    MIPI_DPHY_TEST_CTRL            (MIPI_DSI_IPS_BASE_ADDR + \
 							OFFSET_DPHY_TEST_CTRL)
 
-int MIPI_LCD_ICINIT(void);
+struct mipipanel_info {
+	char* name;
+	struct fb_videomode* vm;
+    struct mipi_lcd_config* phy;
+};
 
-int mipi_panel_init(char** panel_name);
+
+int mipi_panel_init(struct mipipanel_info** pi);
+int mipi_panel_init_def(void);
+
+void mipi_dsi_write_register(u32 reg, u32 val);
+void mipi_dsi_read_register(u32 reg, u32 *val);
+
+
 
 #ifdef CONFIG_VIDEO_MX5
 #if MIPI_DSI
@@ -106,3 +125,4 @@ extern int fsl_bmp_reversed_mipi_480x800_size;
 #endif
 #endif
 
+#endif
