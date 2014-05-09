@@ -1109,7 +1109,7 @@ static void mipi_dsi_enable()
 	msleep(5);
 	mipi_dsi_enable_controller();	
     msleep(5);
-	err = MIPILCD_ICINIT();
+	err = mipi_panel_init_def();
 	if (err < 0) {
 		printf("lcd init failed\n");
 		return;
