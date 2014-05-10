@@ -374,7 +374,7 @@ static inline int mipi_generic_write(u32* buf,int l){
 	}while(0)
 
 static int otm9605a_detect(void){
-	int err,count=5;
+	int err,count=10;
 	u32 buf[32];
 	do {
 		//read ID
@@ -414,8 +414,9 @@ static int otm9605a_init(void){
 	W_COM_1A_1P(0x00,0xB4);
 	W_COM_1A_1P(0xC0,0x50);
 
-	W_COM_1A_1P(0x00,0x89);
-	W_COM_1A_1P(0xC0,0x01);
+	/*W_COM_1A_1P(0x00,0x89);
+	W_COM_1A_1P(0xC0,0x01);*/
+	
 	W_COM_1A_1P(0x00,0xA0);
 	W_COM_1A_1P(0xC1,0x00);
 	W_COM_1A_1P(0x00,0x00);
@@ -539,7 +540,7 @@ static int otm9605a_init(void){
 }
 
 static int nt35517_detect(void){
-	int err,count=5;
+	int err,count=10;
 	u32 buf[32];
 	
 	do {
@@ -995,8 +996,6 @@ static int nt35517_init(void){
 	return err;
 }
 
-typedef int (*mipi_detect)(void);
-typedef int (*mipi_init)(void);
 
 struct mipi_panel_opaque{
 	mipi_detect detect;
@@ -1008,12 +1007,12 @@ struct mipi_panel_opaque{
 //
 static struct fb_videomode vm_otm9605a={
 	"otm9605a", 
-	60,//refresh
+	60,/*refresh*/
 	540,960,/*xres,yres*/
-	30500/*pixclock*/,
-	3, 3, /*left margin,right margin*/
-	60, 35,/*upper margin,lower margin*/
-	8,20,/*hsync len,vsync len*/
+	30500,/*pixclock ps*/
+	10, 10, /*left margin,right margin*/
+	50, 30,/*upper margin,lower margin*/
+	10,10,/*hsync len,vsync len*/
 	FB_SYNC_OE_LOW_ACT,/*sync*/
 	FB_VMODE_NONINTERLACED,/*vmode*/
 	0,/*flag*/
@@ -1025,23 +1024,17 @@ static struct mipi_lcd_config phy_otm9605a = {//add by allenyao
 	.dpi_fmt		= MIPI_RGB888,
 };
 
-static struct mipipanel_info pi_otm9605a={
-	.name = "OT-QHD",
-	.vm = &vm_otm9605a,
-	.phy = &phy_otm9605a,
-};
-
 //
 //NT35517 MIPI PANEL
 //
 static struct fb_videomode vm_nt35517={
 	"nt35517", 
-	60,//refresh
+	60,/*refresh*/
 	540,960,/*xres,yres*/
-	30500/*pixclock*/,
-	3, 3, /*left margin,right margin*/
-	60, 35,/*upper margin,lower margin*/
-	8,20,/*hsync len,vsync len*/
+	30500,/*pixclock ps*/
+	10, 10, /*left margin,right margin*/
+	50, 30,/*upper margin,lower margin*/
+	10,10,/*hsync len,vsync len*/
 	FB_SYNC_OE_LOW_ACT,/*sync*/
 	FB_VMODE_NONINTERLACED,/*vmode*/
 	0,/*flag*/
@@ -1052,33 +1045,29 @@ static struct mipi_lcd_config phy_nt35517= {
 	.max_phy_clk    = 450,
 	.dpi_fmt		= MIPI_RGB888,
 };
-
-static struct mipipanel_info pi_nt35517={
-	.name = "NT-QHD",
-	.vm = &vm_nt35517,
-	.phy = &phy_nt35517,
-};
-
-
-static struct mipi_panel_opaque mipi_panels[]={
+static struct mipipanel_info mipi_panels[]={
 	{
+		
+		.name = "OT-QHD",
+		.vm = &vm_otm9605a,
+		.phy = &phy_otm9605a,
 		.detect = otm9605a_detect,
 		.init = otm9605a_init,
-		.pi = &pi_otm9605a,
 	},
 	{
+		.name = "NT-QHD",
+		.vm = &vm_nt35517,
+		.phy = &phy_nt35517,
 		.detect = nt35517_detect,
 		.init = nt35517_init,
-		.pi = &pi_nt35517,
 	},
 };
 
-int mipi_panel_init(struct mipipanel_info** pi){
+int mipi_panel_detect(struct mipipanel_info** pi){
 	int i;
 	for(i=0;i<sizeof(mipi_panels)/sizeof(mipi_panels[0]);i++){
-		if(mipi_panels[i].detect()){
-			mipi_panels[i].init();
-			*pi = mipi_panels[i].pi;
+		if(mipi_panels[i].detect()){			
+			*pi = &mipi_panels[i];
 			return 0;
 		}
 	}
@@ -1089,5 +1078,5 @@ int mipi_panel_init(struct mipipanel_info** pi){
 
 int mipi_panel_init_def(void)
 {
-	return nt35517_init();
+	return otm9605a_init();
 }

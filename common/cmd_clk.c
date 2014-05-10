@@ -50,13 +50,13 @@ int do_clkops(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	case 3:
 		freq = simple_strtoul(argv[2], NULL, 10);
 		if (strcmp(argv[1], "core") == 0)
-			clk_config(CONFIG_REF_CLK_FREQ, freq, CPU_CLK);
+			clk_config(CONFIG_REF_CLK_FREQ, freq* 1000000, CPU_CLK);
 		else if (strcmp(argv[1], "periph") == 0)
-			clk_config(CONFIG_REF_CLK_FREQ, freq, PERIPH_CLK);
+			clk_config(CONFIG_REF_CLK_FREQ, freq* 1000000, PERIPH_CLK);
 		else if (strcmp(argv[1], "ddr") == 0)
-			clk_config(CONFIG_REF_CLK_FREQ, freq, DDR_CLK);
+			clk_config(CONFIG_REF_CLK_FREQ, freq* 1000000, DDR_CLK);
 		else if (strcmp(argv[1], "nfc") == 0)
-			clk_config(CONFIG_REF_CLK_FREQ, freq, NFC_CLK);
+			clk_config(CONFIG_REF_CLK_FREQ, freq* 1000000, NFC_CLK);
 		else
 			printf("Unsupported clock type!\n");
 		break;

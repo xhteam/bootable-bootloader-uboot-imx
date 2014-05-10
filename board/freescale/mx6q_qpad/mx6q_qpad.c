@@ -179,10 +179,10 @@ static struct fb_videomode mipi_dsi = {
 	 "mipi",
 	 60,/*refresh*/
 	 540,960,/*xres,yres*/
-	 30500,/*pixclock ps*/
-	 32, 32, /*left margin,right margin*/
-	 60, 35,/*upper margin,lower margin*/
-	 4,20,/*hsync len,vsync len*/
+	 30000,/*pixclock ps*/
+	 10, 10, /*left margin,right margin*/
+	 50, 30,/*upper margin,lower margin*/
+	 10,10,/*hsync len,vsync len*/
 	 FB_SYNC_OE_LOW_ACT,/*sync*/
 	 FB_VMODE_NONINTERLACED,/*vmode*/
 	 0,/*flag*/
@@ -930,12 +930,11 @@ msleep(int count)
 #define LCD_RESET IMX_GPIO_NR(6,16)
 #define LCD_BL_PWR IMX_GPIO_NR(4,15)
 
-static void panel_power_on(void)
+static void panel_power_on(int on)
 {
-	u32 reg;
-
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_D6__GPIO_2_6));
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_CS3__GPIO_6_16));
+	if(on){
 	//LCD PWR
 	gpio_direction_output(LCD_PWR, 0);
 	
@@ -943,8 +942,11 @@ static void panel_power_on(void)
 	gpio_direction_output(LCD_RESET, 0);
 	msleep(10);
 	gpio_direction_output(LCD_RESET, 1);
-	msleep(200);
-
+	msleep(120);
+	}else {	
+		gpio_direction_output(LCD_PWR, 1);
+		gpio_direction_output(LCD_RESET, 0);		
+	}
 
 }
 
@@ -1010,7 +1012,7 @@ static u32 cal_mipi_phy_pll(u32 max_phy_clk){
 	}
 	pll =  mipi_dsi_phy_pll_clk_table[--i].config;
 	
-	printf("dphy_pll_config:0x%x.\n", pll);
+	//printf("dphy_pll_config:0x%x.\n", pll);
 
 	return pll;
 }
@@ -1201,16 +1203,23 @@ static void mipi_dsi_enable(void)
 	mipi_clk_enable(1);
 	msleep(5);
 	mipi_dsi_enable_controller();	
-    msleep(10);
-	err = mipi_panel_init(&pi);
+	msleep(100);
+	err = mipi_panel_detect(&pi);
 	if (err < 0) {
 		printf("init default lcd panel\n");
 		mipi_panel_init_def();
 	}else {
 		panel_name = pi->name;
 		//FIXME: reinit MIPI controller??
-		//memcpy(&mipi_dsi,pi->vm,sizeof(mipi_dsi));
-		//memcpy(&mipilcd_config,pi->phy,sizeof(mipilcd_config));	
+		memcpy(&mipi_dsi,pi->vm,sizeof(mipi_dsi));
+		memcpy(&mipilcd_config,pi->phy,sizeof(mipilcd_config));
+		//panel_power_on(0);
+		//panel_power_on(1);
+		panel_info_init();
+		//mipi_dsi_disable_controller();
+		//msleep(5);
+		mipi_dsi_enable_controller();
+		pi->init();
 	}
 	
     msleep(5);
@@ -1442,7 +1451,7 @@ void lcd_enable(void)
 			DI_PCLK_PLL3, 26400000);
 	#elif defined CONFIG_MX6DL
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 26400000);
+			DI_PCLK_PLL3, 0);
 	#endif
 #else
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
@@ -1465,9 +1474,8 @@ void lcd_enable(void)
 		reg &= ~(0x0000030);
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
-	panel_power_on();
+	panel_power_on(1);
 	mipi_dsi_enable();
-	panel_bl_on(1);
 #else //ldb
 	/*
 	 * LVDS0 mux to IPU1 DI0.
@@ -1815,7 +1823,11 @@ int autoupdate_mode_detect(void){
 #ifdef BOARD_LATE_INIT
 int board_late_init(void)
 {
-	int ret = 0;	
+	int ret = 0;
+	#if  defined(CONFIG_LCD)||defined(CONFIG_VIDEO)
+	//turn back light
+	panel_bl_on(1);
+	#endif
 	return ret;
 }
 #endif
@@ -2202,7 +2214,7 @@ int misc_init_r (void)
 			lcd_screen_clear();
 			if(!bmp_manager_getbmp("bmp.bat0",&batbmp)){
 				bmp_manager_readbmp("bmp.bat0",CONFIG_SYS_LOAD_ADDR,0x2000000);
-				draw_bmp(CONFIG_SYS_LOAD_ADDR,0);
+				draw_bmp((u8*)CONFIG_SYS_LOAD_ADDR,0);
 			}else {
 				draw_bmp(bmp_bat0,0);
 			}

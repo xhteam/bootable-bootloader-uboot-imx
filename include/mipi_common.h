@@ -103,14 +103,21 @@
 #define    MIPI_DPHY_TEST_CTRL            (MIPI_DSI_IPS_BASE_ADDR + \
 							OFFSET_DPHY_TEST_CTRL)
 
+typedef int (*mipi_detect)(void);
+typedef int (*mipi_init)(void);
+
 struct mipipanel_info {
 	char* name;
 	struct fb_videomode* vm;
-    struct mipi_lcd_config* phy;
+    struct mipi_lcd_config* phy;	
+	mipi_init init;
+
+	
+	mipi_detect detect;
 };
 
 
-int mipi_panel_init(struct mipipanel_info** pi);
+int mipi_panel_detect(struct mipipanel_info** pi);
 int mipi_panel_init_def(void);
 
 void mipi_dsi_write_register(u32 reg, u32 val);

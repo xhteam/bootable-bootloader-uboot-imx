@@ -100,6 +100,9 @@ enum pll_clocks {
 #define NFC_CLK_MAX     PLL2_FREQ_MAX
 #endif
 
+#define PLL5_FREQ_MIN	650000000
+#define PLL5_FREQ_MAX	1300000000
+
 #define GPC_PGC_GPU_PGCR_OFFSET 0x260
 #define GPC_CNTR_OFFSET         0x0
 
@@ -120,6 +123,7 @@ static unsigned int fuse;
 static u32 __decode_pll(enum pll_clocks pll, u32 infreq)
 {
 	u32 div;
+	u32 post_div, temp, mfn, mfd;
 
 	switch (pll) {
 	case CPU_PLL1:
@@ -148,8 +152,35 @@ static u32 __decode_pll(enum pll_clocks pll, u32 infreq)
 		case 3:
 			return ENET_FREQ_3;
 		}
-	case AUD_PLL4:
+	case AUD_PLL4:return 0;
 	case VID_PLL5:
+		temp = REG_RD(ANATOP_BASE_ADDR, HW_ANADIG_PLL_VIDEO) & 
+			BM_ANADIG_PLL_VIDEO_TEST_DIV_SELECT;
+		temp = temp >> BP_ANADIG_PLL_VIDEO_TEST_DIV_SELECT;
+		if (temp == 0)
+			post_div = 4;
+		else if (temp == 1)
+			post_div = 2;
+		else
+			post_div = 1;
+
+		temp = REG_RD(ANATOP_BASE_ADDR, HW_ANADIG_ANA_MISC2) & 
+			BM_ANADIG_ANA_MISC2_CONTROL3;
+		temp = temp >> BP_ANADIG_ANA_MISC2_CONTROL3;
+		if (temp == 1)
+			post_div *= 2;
+		else if (temp == 3)
+			post_div *= 4;
+
+		div = REG_RD(ANATOP_BASE_ADDR, HW_ANADIG_PLL_VIDEO) &
+			BM_ANADIG_PLL_VIDEO_DIV_SELECT;
+		mfn = REG_RD(ANATOP_BASE_ADDR, HW_ANADIG_PLL_VIDEO_NUM) &
+			BM_ANADIG_PLL_VIDEO_NUM_A;
+		mfd = REG_RD(ANATOP_BASE_ADDR, HW_ANADIG_PLL_VIDEO_DENOM) &
+			BM_ANADIG_PLL_VIDEO_DENOM_B;
+
+		temp = (infreq * div) + ((infreq / mfd) * mfn);
+		return (temp / post_div);
 #ifndef CONFIG_MX6SL
 	case MLB_PLL6:
 	case USBHOST_PLL7:
@@ -752,6 +783,176 @@ static int config_nfc_clk(u32 nfc_clk)
 
 	return  0;
 }
+
+static int config_lvds_clk(u32 di, u32 ref, u32 freq)
+{
+	u32 divider;
+	unsigned int reg;
+
+	printf("config_ipu_lvds_clk: freq = %d.\r\n", freq);
+
+	/* Set PLL3 PFD1 Clock */
+	divider = (__decode_pll(USBOTG_PLL3, ref) / SZ_DEC_1M) * 18 / (freq / SZ_DEC_1M);
+	if(divider < 12)
+		divider = 12;
+	if(divider > 35)
+		divider = 35;
+
+	printf("config_ipu_lvds_clk: set pll3_pfd1 clock to %dMHz, divider = %d.\r\n", __decode_pll(USBOTG_PLL3, ref) /SZ_DEC_1M  / divider * 18, divider);
+
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_PFD_480);
+	reg &= ~BM_ANADIG_PFD_480_PFD1_FRAC;
+	reg |= (divider << BP_ANADIG_PFD_480_PFD1_FRAC);
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_PFD_480_SET);
+
+	/* Set ldb_di_clk clock source to PLL3 PFD1 */
+	reg = readl(CCM_BASE_ADDR + CLKCTL_CS2CDR);
+	if (di == 0) {
+		reg &= ~(0x7 << 9);
+		reg |= (0x3 << 9);
+	} else if (di == 1) {
+		reg &= ~(0x7 << 12);
+		reg |= (0x3 << 12);
+	}
+	writel(reg, CCM_BASE_ADDR + CLKCTL_CS2CDR);
+
+#ifdef LVDS_SPLIT_MODE
+	/* Set ipu_di clock to ldb_di_clk/3.5 */
+	reg = readl(CCM_BASE_ADDR + CLKCTL_CSCMR2);
+	if (di == 0)
+		reg &= ~(0x1 << 10);
+	else if (di == 1)
+		reg &= ~(0x1 << 11);
+#else
+	/* Set ipu_di clock to ldb_di_clk/7 */
+	reg = readl(CCM_BASE_ADDR + CLKCTL_CSCMR2);
+	if (di == 0)
+		reg |= (0x1 << 10);
+	else if (di == 1)
+		reg |= (0x1 << 11);
+#endif
+	writel(reg, CCM_BASE_ADDR + CLKCTL_CSCMR2);
+
+	/* Set ipu_di_clk clock source to ldb_di_clk, and root clock pre-multiplexer from PLL3 PFD1, ipu_di_podf divide by 1 */
+	reg = readl(CCM_BASE_ADDR + CLKCTL_CHSCCDR);
+	if (di == 0) {
+		reg &= ~(0x1FF << 0);
+		reg |= ((3 << 0) | (5 << 6));
+	} else if (di == 1) {
+		reg &= ~(0x1FF << 9);
+		reg |= ((4 << 9) | (5 << 15));
+	}
+	writel(reg, CCM_BASE_ADDR + CLKCTL_CHSCCDR);
+
+	return 0;
+}
+
+static int config_ipu_di_clk(u32 ipu, u32 di, u32 ref, u32 freq)
+{
+	unsigned int reg;
+
+	u32 pre_div_rate, divider;
+	u32 test_div_sel = 2;
+	u32 control3 = 0;
+	u64 temp64;
+	u32 mfn, mfd = 1000000;
+
+	debug("config_ipu_di_clk: freq = %d.\r\n", freq);
+
+	/* Set PLL5 Clock */
+	/* Disable the PLL first */
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+	reg |= BM_ANADIG_PLL_VIDEO_BYPASS;
+	reg &= ~BM_ANADIG_PLL_VIDEO_ENABLE;
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO); 
+
+	pre_div_rate = freq * 2;
+	while (pre_div_rate < PLL5_FREQ_MIN) {
+		pre_div_rate *= 2;
+		/*
+		 * test_div_sel field values:
+		 * 2 -> Divide by 1
+		 * 1 -> Divide by 2
+		 * 0 -> Divide by 4
+		 *
+		 * control3 field values:
+		 * 0 -> Divide by 1
+		 * 1 -> Divide by 2
+		 * 3 -> Divide by 4
+		 */
+		if (test_div_sel != 0)
+			test_div_sel --;
+		else {
+			control3 ++;
+			if (control3 == 2)
+				control3 ++;
+		}
+	}
+	divider = pre_div_rate / ref;
+	temp64 = (u64) (pre_div_rate - (divider * ref));
+	temp64 *= mfd;
+	do_div(temp64, ref);
+	mfn = temp64;
+
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO)
+			& ~(BM_ANADIG_PLL_VIDEO_DIV_SELECT | BM_ANADIG_PLL_VIDEO_TEST_DIV_SELECT);
+	reg |= (divider |
+		(test_div_sel << BP_ANADIG_PLL_VIDEO_TEST_DIV_SELECT));
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+	writel(mfn, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO_NUM);
+	writel(mfd, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO_DENOM);
+
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_ANA_MISC2)
+		& ~BM_ANADIG_ANA_MISC2_CONTROL3;
+	reg |= control3 << BP_ANADIG_ANA_MISC2_CONTROL3;
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_ANA_MISC2);
+
+	/* Enable the PLL power */
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+	reg &= ~BM_ANADIG_PLL_VIDEO_POWERDOWN;
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+
+	/* Wait for PLL to lock */
+	while((readl(ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO) & BM_ANADIG_PLL_VIDEO_LOCK) == 0){
+		debug("wait for pll5 lock.\n");
+		udelay(1000);
+	}
+
+	/* Enable the PLL output */
+	reg = readl(ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+	reg &= ~BM_ANADIG_PLL_VIDEO_BYPASS;
+	reg |= BM_ANADIG_PLL_VIDEO_ENABLE;
+	writel(reg, ANATOP_BASE_ADDR + HW_ANADIG_PLL_VIDEO);
+
+	debug("config_ipu_di_clk: set pll5 clock to %dHz.\r\n", __decode_pll(VID_PLL5, CONFIG_MX6_HCLK_FREQ));
+
+	/* Set ipu_di_clk clock source to pre-muxed ipu di clock, divided by 2, and root clock pre-muxed from PLL5 */
+	if (ipu == 1) {
+		reg = readl(CCM_BASE_ADDR + CLKCTL_CHSCCDR);
+		if (di == 0) {
+			reg &= ~0x000001FF;
+			reg |= ((0 << 0) | (1 << 3) | (2 << 6));
+		} else if (di == 1) {
+			reg &= ~0x0003FE00;
+			reg |= ((0 << 9) | (1 << 12) | (2 << 15));
+		}
+		writel(reg, CCM_BASE_ADDR + CLKCTL_CHSCCDR);
+	}
+
+	if (ipu == 2) {
+		reg = readl(CCM_BASE_ADDR + CLKCTL_CSCDR2);
+		if (di == 0) {
+			reg &= ~0x000001FF;
+			reg |= ((0 << 0) | (1 << 3) | (2 << 6));
+		} else if (di == 1) {
+			reg &= ~0x0003FE00;
+			reg |= ((0 << 9) | (1 << 12) | (2 << 15));
+		}
+		writel(reg, CCM_BASE_ADDR + CLKCTL_CSCDR2);
+	}
+
+	return 0;
+}
 static int config_periph_clk(u32 ref, u32 freq)
 {
 	u32 cbcdr = readl(CCM_BASE_ADDR + CLKCTL_CBCDR);
@@ -846,7 +1047,7 @@ static int config_ddr_clk(u32 ddr_clk)
  */
 int clk_config(u32 ref, u32 freq, u32 clk_type)
 {
-	freq *= SZ_DEC_1M;
+//	freq *= SZ_DEC_1M;
 
 	switch (clk_type) {
 	case CPU_CLK:
@@ -865,6 +1066,30 @@ int clk_config(u32 ref, u32 freq, u32 clk_type)
 		if (config_nfc_clk(freq))
 			return -1;
 		break;
+	case LVDS_DI0_CLK:
+		if (config_lvds_clk(0, ref, freq))
+			return -1;
+		break;
+	case LVDS_DI1_CLK:
+		if (config_lvds_clk(1, ref, freq))
+			return -1;
+		break;
+	case IPU1_DI0_CLK:
+		if (config_ipu_di_clk(1, 0, ref, freq))
+			return -1;
+		break;
+	case IPU1_DI1_CLK:
+		if (config_ipu_di_clk(1, 1, ref, freq))
+			return -1;
+		break;
+	case IPU2_DI0_CLK:
+		if (config_ipu_di_clk(2, 0, ref, freq))
+			return -1;
+		break;
+	case IPU2_DI1_CLK:
+		if (config_ipu_di_clk(2, 1, ref, freq))
+			return -1;
+		break;		
 	default:
 		printf("Unsupported or invalid clock type! :(\n");
 		return -1;
@@ -1108,8 +1333,8 @@ int arch_cpu_init(void)
 #endif
 
 #ifdef CONFIG_VIDEO_MX5
-void ipu_clk_enable(void)
-{
+void ipu_clk_enable(unsigned long rate)
+{	
 }
 
 void ipu_clk_disable(void)

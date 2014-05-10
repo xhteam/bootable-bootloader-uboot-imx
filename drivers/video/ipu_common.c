@@ -163,7 +163,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 
 static int clk_ipu_enable(struct clk *clk)
 {
-	ipu_clk_enable();
+	ipu_clk_enable(clk->rate);
 	return 0;
 }
 
