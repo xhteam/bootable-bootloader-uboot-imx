@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Freescale Semiconductor, Inc.
+ * Copyright (C) 2012 Freescale Semiconductor, Inc.
  *
  * Configuration settings for the MX6Q Sabre Lite2 Freescale board.
  *
@@ -342,11 +342,6 @@
 	#define CONFIG_FB_BASE	(TEXT_BASE + 0x300000)
 	#define CONFIG_SPLASH_SCREEN_ALIGN
 	#define CONFIG_SYS_WHITE_ON_BLACK
-
-	/*
-	 *Enable MIPI panel in uboot
-	*/
-	#define MIPI_DSI	1
 
 	#define CONFIG_IMX_PWM
 	#define IMX_PWM1_BASE    PWM1_BASE_ADDR

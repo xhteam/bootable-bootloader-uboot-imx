@@ -74,5 +74,5 @@
 		"bootcmd=booti mmc2\0"					\
 		"splashimage=0x30000000\0"				\
 		"splashpos=m,m\0"					\
-		"lvds_num=0\0"
+		"lvds_num=1\0"
 #endif
