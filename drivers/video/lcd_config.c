@@ -260,7 +260,6 @@ static int mipi_dsi_pkt_read(u8 data_type, u32 *buf, int len)
 		mipi_dsi_read_register( MIPI_DSI_CMD_PKT_STATUS,
 			&val);
 	}
-
 	mipi_dsi_read_register( MIPI_DSI_CMD_PKT_STATUS, &val);
 	while (!(val & DSI_CMD_PKT_STATUS_GEN_PLD_R_EMPTY)) {
 		mipi_dsi_read_register( MIPI_DSI_GEN_PLD_DATA, buf);
@@ -376,6 +375,8 @@ static inline int mipi_generic_write(u32* buf,int l){
 static int otm9605a_detect(void){
 	int err,count=10;
 	u32 buf[32];
+
+#if 1
 	do {
 		//read ID
 		buf[0] = 0xDA;
@@ -387,10 +388,36 @@ static int otm9605a_detect(void){
 			msleep(5);
 		}
 	}while(err&&--count>0);
+
 	if (!err && ((buf[0] & 0xff) == 0x40)) {
-		printf("otm9605 found\n");
+		printf("otm9605a found\n");
 		return 1;
 	}
+#else
+	do {
+		buf[0] = MIPI_DSI_MAX_RET_PACK_SIZE+1;
+		err = mipi_dsi_pkt_write(MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE,
+					buf, 0);
+	}while(err&&--count>0);
+	count=10;
+	do {
+		//read DDB
+		buf[0] = 0xA1;
+		err =  mipi_dsi_pkt_read(MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM,
+				buf, 4);
+		if(!err){
+			printf("otm9605a ID=%#x\n",buf[0]);
+		}else {
+			msleep(5);
+		}
+	}while(err&&--count>0);
+	buf[0]>>=16;
+	if (!err && ((buf[0] & 0xffff) == 0x0596)) {
+		printf("otm9605a found\n");
+		return 1;
+	}
+#endif
+
 	return 0;
 }
 static int otm9605a_init(void){
@@ -542,7 +569,6 @@ static int otm9605a_init(void){
 static int nt35517_detect(void){
 	int err,count=10;
 	u32 buf[32];
-	
 	do {
 		//read ID
 		buf[0] = 0xDB;
@@ -1064,7 +1090,18 @@ static struct mipipanel_info mipi_panels[]={
 };
 
 int mipi_panel_detect(struct mipipanel_info** pi){
+	char* env=NULL;
 	int i;
+	env = getenv("panel");
+	if(NULL!=env){
+		for(i=0;i<sizeof(mipi_panels)/sizeof(mipi_panels[0]);i++){
+			if(!strcmp(env,mipi_panels[i].name)){
+				*pi = &mipi_panels[i];
+				return 0;
+			}
+		}
+	}
+	//reach here means no env specified panel name,we should use legacy detect
 	for(i=0;i<sizeof(mipi_panels)/sizeof(mipi_panels[0]);i++){
 		if(mipi_panels[i].detect()){			
 			*pi = &mipi_panels[i];
