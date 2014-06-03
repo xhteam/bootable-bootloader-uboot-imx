@@ -3354,6 +3354,7 @@ mx6dl_qpad_android_config	: unconfig
 		}
 	@$(MKCONFIG) $(@:_config=) arm arm_cortexa8 mx6q_qpad freescale mx6
 
+mx6q_tdh_mfg_config \
 mx6q_tdh_android_config		\
 mx6dl_tdh_android_config	: unconfig
 	@[ -z "$(findstring iram_,$@)" ] || \

@@ -21,15 +21,17 @@
  */
 #include <version.h>
 #include <common.h>
+#include <malloc.h>
 #include <asm/io.h>
 #include <asm/arch/mx6.h>
 #include <bmpmanager.h>
 #include <asm/arch/mx6_pins.h>
-#include "../../../drivers/video/mipi_common.h"//add by allenyao
-#include <mipi_dsi.h>//add by allenyao
+#include <mipi_common.h>
+#include <mipi_dsi.h>
 #if defined(CONFIG_SECURE_BOOT)
 #include <asm/arch/mx6_secure.h>
 #endif
+#include <asm/arch/crm_regs.h>
 #include <asm/arch/mx6dl_pins.h>
 #include <asm/arch/iomux-v3.h>
 #include <asm/arch/regs-anadig.h>
@@ -1583,7 +1585,7 @@ int board_init(void)
 #ifdef CONFIG_ARCH_MMU
 	gd->fb_base = ioremap_nocache(iomem_to_phys(gd->fb_base), 0);
 #endif
-	memset(gd->fb_base,0,CONFIG_FB_SIZE);
+	//memset(gd->fb_base,0,CONFIG_FB_SIZE);
 #endif
 
 
@@ -1824,7 +1826,7 @@ static const char* board_revision(void){
 	
 }
 
-
+#ifdef CONFIG_CMD_BMP
 static int draw_bmp(u8* bmp_image,int mode){
     int ret=0;
 	bmp_image_t *bmp = (bmp_image_t *) bmp_image;
@@ -1899,6 +1901,8 @@ static int do_batterybmp(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 U_BOOT_CMD(
         batterybmp, CONFIG_SYS_MAXARGS, 0, do_batterybmp, NULL, NULL
 );
+
+#endif
 
 static int do_i2cport(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
