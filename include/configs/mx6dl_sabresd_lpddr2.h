@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2010-2012 Freescale Semiconductor, Inc.
  *
- * Configuration settings for the MX6Q Sabre Lite2 Freescale board.
+ * Configuration settings for the MX6DL SabreSD Freescale board.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,24 +19,26 @@
  * MA 02111-1307 USA
  */
 
-#ifndef MX6Q_TDH_MFG_H
-#define MX6Q_TDH_MFG_H
+#ifndef __CONFIG_H
+#define __CONFIG_H
 
 #include <asm/arch/mx6.h>
 
-#define CONFIG_LPDDR2
-#define CONFIG_DDR_32BIT /* for DDR 32bit */
-
-
  /* High Level Configuration Options */
-#define CONFIG_MFG
 #define CONFIG_ARMV7	/* This is armv7 Cortex-A9 CPU core */
 #define CONFIG_MXC
-#define CONFIG_MX6Q
-#define CONFIG_MX6Q_TDH
+#define CONFIG_MX6DL
+#define CONFIG_MX6DL_LPDDR2
+#define CONFIG_MX6DL_SABRESD
+#define CONFIG_DDR_32BIT /* For 32bit DDR, comment it out for 64bit */
 #define CONFIG_FLASH_HEADER
 #define CONFIG_FLASH_HEADER_OFFSET 0x400
 #define CONFIG_MX6_CLK32	   32768
+
+/* Disable secure boot feature in default, if you want to enable this
+ * feature, please carefully read related documents, you may needs to
+ * change u-boot.lds */
+#undef CONFIG_SECURE_BOOT
 
 #define CONFIG_SKIP_RELOCATE_UBOOT
 
@@ -58,7 +60,7 @@
 #define CONFIG_REVISION_TAG
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
-
+#define CONFIG_MXC_GPIO
 /*
  * Size of malloc() pool
  */
@@ -84,48 +86,58 @@
 
 #include <config_cmd_default.h>
 
-#define CONFIG_MXC_GPIO
 #define CONFIG_CMD_PING
-//#define CONFIG_CMD_DHCP
-//#define CONFIG_CMD_MII
-//#define CONFIG_CMD_NET
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
 #define CONFIG_NET_RETRY_COUNT  100
 #define CONFIG_NET_MULTI 1
 #define CONFIG_BOOTP_SUBNETMASK
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_DNS
 
-//#define CONFIG_CMD_SPI
+#define CONFIG_CMD_SPI
 #define CONFIG_CMD_I2C
 #define CONFIG_CMD_IMXOTP
 
 /* Enable below configure when supporting nand */
-//#define CONFIG_CMD_SF
+#define CONFIG_CMD_SF
 #define CONFIG_CMD_MMC
 #define CONFIG_CMD_ENV
+#define CONFIG_CMD_REGUL
 
 #define CONFIG_CMD_CLOCK
 #define CONFIG_REF_CLK_FREQ CONFIG_MX6_HCLK_FREQ
 
-/* #define CONFIG_CMD_SATA */
 #undef CONFIG_CMD_IMLS
 
-#define CONFIG_BOOTDELAY 0
+#define CONFIG_CMD_IMX_DOWNLOAD_MODE
+
+#define CONFIG_BOOTDELAY 3
 
 #define CONFIG_PRIME	"FEC0"
 
 #define CONFIG_LOADADDR		0x10800000	/* loadaddr env var */
-#define CONFIG_RD_LOADADDR	0x10c00000
-
-#define CONFIG_BOOTARGS         "console=ttymxc0,115200 rdinit=/linuxrc "\
-				"enable_wait_mode=off"
-#define CONFIG_BOOTCOMMAND      "bootm 0x10800000 0x10c00000"
+#define CONFIG_RD_LOADADDR	(CONFIG_LOADADDR + 0x300000)
 
 #define	CONFIG_EXTRA_ENV_SETTINGS					\
 		"netdev=eth0\0"						\
 		"ethprime=FEC0\0"					\
 		"uboot=u-boot.bin\0"			\
 		"kernel=uImage\0"				\
+		"nfsroot=/opt/eldk/arm\0"				\
+		"bootargs_base=setenv bootargs console=ttymxc0,115200\0"\
+		"bootargs_nfs=setenv bootargs ${bootargs} root=/dev/nfs "\
+			"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0"\
+		"bootcmd_net=run bootargs_base bootargs_nfs; "		\
+			"tftpboot ${loadaddr} ${kernel}; bootm\0"	\
+		"bootargs_mmc=setenv bootargs ${bootargs} ip=dhcp "     \
+			"root=/dev/mmcblk0p1 rootwait\0"                \
+		"bootcmd_mmc=run bootargs_base bootargs_mmc; "   \
+		"mmc dev 3; "	\
+		"mmc read ${loadaddr} 0x800 0x2000; bootm\0"	\
+		"bootcmd=run bootcmd_net\0"                             \
+
 
 #define CONFIG_ARP_TIMEOUT	200UL
 
@@ -133,9 +145,9 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
-#define CONFIG_SYS_PROMPT		"MX6Q TDH-MFG U-Boot > "
+#define CONFIG_SYS_PROMPT		"MX6SDL SABRESD U-Boot > "
 #define CONFIG_AUTO_COMPLETE
-#define CONFIG_SYS_CBSIZE		256	/* Console I/O Buffer Size */
+#define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size */
 /* Print Buffer Size */
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE + sizeof(CONFIG_SYS_PROMPT) + 16)
 #define CONFIG_SYS_MAXARGS	16	/* max number of command args */
@@ -152,17 +164,17 @@
 
 #define CONFIG_CMDLINE_EDITING
 
-//#define CONFIG_FEC0_IOBASE	ENET_BASE_ADDR
-//#define CONFIG_FEC0_PINMUX	-1
-//#define CONFIG_FEC0_MIIBASE	-1
-//#define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
-//#define CONFIG_MXC_FEC
-//#define CONFIG_FEC0_PHY_ADDR		0
-//#define CONFIG_ETH_PRIME
-//#define CONFIG_RMII
-//#define CONFIG_CMD_MII
-//#define CONFIG_CMD_DHCP
-//#define CONFIG_CMD_PING
+#define CONFIG_FEC0_IOBASE	ENET_BASE_ADDR
+#define CONFIG_FEC0_PINMUX	-1
+#define CONFIG_FEC0_MIIBASE	-1
+#define CONFIG_GET_FEC_MAC_ADDR_FROM_IIM
+#define CONFIG_MXC_FEC
+#define CONFIG_FEC0_PHY_ADDR		1
+#define CONFIG_ETH_PRIME
+#define CONFIG_RMII
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_PING
 #define CONFIG_IPADDR			192.168.1.103
 #define CONFIG_SERVERIP			192.168.1.101
 #define CONFIG_NETMASK			255.255.255.0
@@ -183,9 +195,9 @@
 #ifdef CONFIG_CMD_I2C
 	#define CONFIG_HARD_I2C         1
 	#define CONFIG_I2C_MXC          1
-	#define CONFIG_SYS_I2C_PORT             I2C3_BASE_ADDR
+	#define CONFIG_SYS_I2C_PORT             I2C2_BASE_ADDR
 	#define CONFIG_SYS_I2C_SPEED            100000
-	#define CONFIG_SYS_I2C_SLAVE            0x1f
+	#define CONFIG_SYS_I2C_SLAVE            0x8
 #endif
 
 /*
@@ -198,6 +210,13 @@
 	#define CONFIG_IMX_ECSPI
 	#define IMX_CSPI_VER_2_3	1
 	#define MAX_SPI_BYTES		(64 * 4)
+#endif
+
+/* Regulator Configs */
+#ifdef CONFIG_CMD_REGUL
+	#define CONFIG_ANATOP_REGULATOR
+	#define CONFIG_CORE_REGULATOR_NAME "vdd1p1"
+	#define CONFIG_PERIPH_REGULATOR_NAME "vdd1p1"
 #endif
 
 /*
@@ -224,18 +243,6 @@
 #endif
 
 /*
- * SATA Configs
- */
-#ifdef CONFIG_CMD_SATA
-	#define CONFIG_DWC_AHSATA
-	#define CONFIG_SYS_SATA_MAX_DEVICE	1
-	#define CONFIG_DWC_AHSATA_PORT_ID	0
-	#define CONFIG_DWC_AHSATA_BASE_ADDR	SATA_ARB_BASE_ADDR
-	#define CONFIG_LBA48
-	#define CONFIG_LIBATA
-#endif
-
-/*
  * GPMI Nand Configs
  */
 /* #define CONFIG_CMD_NAND */
@@ -251,10 +258,6 @@
 	#define NAND_MAX_CHIPS		8
 	#define CONFIG_SYS_NAND_BASE		0x40000000
 	#define CONFIG_SYS_MAX_NAND_DEVICE	1
-
-	#define CONFIG_DOS_PARTITION	1
-	#define CONFIG_CMD_FAT		1
-	#define CONFIG_CMD_EXT2		1
 
 	/* NAND is the unique module invoke APBH-DMA */
 	#define CONFIG_APBH_DMA
@@ -284,30 +287,71 @@
 #define CONFIG_SYS_NO_FLASH
 
 /* Monitor at beginning of flash */
-/* #define CONFIG_FSL_ENV_IN_MMC */
+#define CONFIG_FSL_ENV_IN_MMC
 /* #define CONFIG_FSL_ENV_IN_NAND */
-/* #define CONFIG_FSL_ENV_IN_SATA */
 
-#define CONFIG_ENV_SECT_SIZE    (128 * 1024)
+#define CONFIG_ENV_SECT_SIZE    (8 * 1024)
 #define CONFIG_ENV_SIZE         CONFIG_ENV_SECT_SIZE
-#define CONFIG_ENV_IS_NOWHERE   1
 
+#if defined(CONFIG_FSL_ENV_IN_NAND)
+	#define CONFIG_ENV_IS_IN_NAND 1
+	#define CONFIG_ENV_OFFSET	0x100000
+#elif defined(CONFIG_FSL_ENV_IN_MMC)
+	#define CONFIG_ENV_IS_IN_MMC	1
+	#define CONFIG_ENV_OFFSET	(768 * 1024)
+#elif defined(CONFIG_FSL_ENV_IN_SF)
+	#define CONFIG_ENV_IS_IN_SPI_FLASH	1
+	#define CONFIG_ENV_SPI_CS		1
+	#define CONFIG_ENV_OFFSET       (768 * 1024)
+#else
+	#define CONFIG_ENV_IS_NOWHERE	1
+#endif
+
+/* #define CONFIG_SPLASH_SCREEN */
+/* #define CONFIG_MXC_EPDC */
+
+/*
+ * SPLASH SCREEN Configs
+ */
+#define CONFIG_SPLASH_SCREEN
 #ifdef CONFIG_SPLASH_SCREEN
 	/*
 	 * Framebuffer and LCD
 	 */
 	#define CONFIG_LCD
+	#define CONFIG_FB_BASE				(TEXT_BASE + 0x300000)
+	#define CONFIG_SYS_CONSOLE_IS_IN_ENV
+#ifdef CONFIG_MXC_EPDC
+	#undef LCD_TEST_PATTERN
+	/* #define CONFIG_SPLASH_IS_IN_MMC			1 */
+	#define LCD_BPP					LCD_MONOCHROME
+	/* #define CONFIG_SPLASH_SCREEN_ALIGN		1 */
+
+	#define CONFIG_WORKING_BUF_ADDR			(TEXT_BASE + 0x100000)
+	#define CONFIG_WAVEFORM_BUF_ADDR		(TEXT_BASE + 0x200000)
+	#define CONFIG_WAVEFORM_FILE_OFFSET		0x600000
+	#define CONFIG_WAVEFORM_FILE_SIZE		0xF0A00
+	#define CONFIG_WAVEFORM_FILE_IN_MMC
+
+#ifdef CONFIG_SPLASH_IS_IN_MMC
+	#define CONFIG_SPLASH_IMG_OFFSET		0x4c000
+	#define CONFIG_SPLASH_IMG_SIZE			0x19000
+#endif
+#else /* !CONFIG_MXC_EPDC */
 	#define CONFIG_IPU_V3H
 	#define CONFIG_VIDEO_MX5
 	#define CONFIG_IPU_CLKRATE	260000000
 	#define CONFIG_SYS_CONSOLE_ENV_OVERWRITE
 	#define CONFIG_SYS_CONSOLE_OVERWRITE_ROUTINE
-	#define CONFIG_SYS_CONSOLE_IS_IN_ENV
 	#define LCD_BPP		LCD_COLOR16
 	#define CONFIG_CMD_BMP
 	#define CONFIG_BMP_8BPP
-	#define CONFIG_FB_BASE	(TEXT_BASE + 0x300000)
 	#define CONFIG_SPLASH_SCREEN_ALIGN
 	#define CONFIG_SYS_WHITE_ON_BLACK
+
+	#define CONFIG_IMX_PWM
+	#define IMX_PWM1_BASE    PWM1_BASE_ADDR
+	#define IMX_PWM2_BASE    PWM2_BASE_ADDR
 #endif
+#endif /* CONFIG_SPLASH_SCREEN */
 #endif				/* __CONFIG_H */

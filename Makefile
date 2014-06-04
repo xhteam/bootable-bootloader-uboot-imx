@@ -3329,6 +3329,9 @@ mx6solo_sabresd_android_config             \
 mx6dl_sabresd_config			\
 mx6dl_sabresd_mfg_config		\
 mx6dl_sabresd_android_config			\
+mx6dl_sabresd_lpddr2_config	\
+mx6dl_sabresd_lpddr2_mfg_config		\
+mx6dl_sabresd_lpddr2_android_config			\
 mx6q_sabresd_config			\
 mx6q_sabresd_android_config             \
 mx6q_sabresd_mfg_config			\
