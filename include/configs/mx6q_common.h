@@ -19,8 +19,8 @@
  * MA 02111-1307 USA
  */
 
-#ifndef __CONFIG_H
-#define __CONFIG_H
+#ifndef MX6Q_COMMON_H
+#define MX6Q_COMMON_H
 
 #include <asm/arch/mx6.h>
 

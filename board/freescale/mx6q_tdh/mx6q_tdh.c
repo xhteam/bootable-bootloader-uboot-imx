@@ -108,11 +108,12 @@ enum {
 };
 static int android_bootmode=eBootModeNormal;
 static int system_boot_reason=eBootReasonPOR;
-
+static char* panel_name=NULL;
 static unsigned char bmp_bat0[]={
 	#include "bat0.inc"
 };
-static int bmp_bat0_size = sizeof(bmp_bat0);
+
+//static int bmp_bat0_size = sizeof(bmp_bat0);
 
 
 static enum boot_device boot_dev;
@@ -138,6 +139,10 @@ static enum boot_device boot_dev;
 #define KEY_PTT_IO		IMX_GPIO_NR(4,10)
 #define KEY_VOLPLUS_IO	IMX_GPIO_NR(6,9)
 #define KEY_VOLMINUS_IO	IMX_GPIO_NR(6,10)
+
+
+#define TDH_MOTOR_PWR_EN	IMX_GPIO_NR(1, 4)
+
 
 
 #ifdef CONFIG_VIDEO_MX5
@@ -166,14 +171,17 @@ extern int ipuv3_fb_init(struct fb_videomode *mode, int di,
 			int di_clk_val);
 
 #if MIPI_DSI
-static struct fb_videomode mipi_dsi = {/*add by allenyao*/
-	 "NT-QHD", 60, 540, 960, 30500/*ps*/,  //945,30500
-	 3, 3,
-	 60, 35,//5,20
-	 8,20,//18
-	 FB_SYNC_OE_LOW_ACT,//ori is  FB_SYNC_OE_LOW_ACT
-	 FB_VMODE_NONINTERLACED,//ori is  FB_VMODE_NONINTERLACED
-	 0,
+static struct fb_videomode mipi_dsi = {
+	 "mipi",
+	 60,/*refresh*/
+	 540,960,/*xres,yres*/
+	 30000,/*pixclock ps*/
+	 10, 10, /*left margin,right margin*/
+	 50, 30,/*upper margin,lower margin*/
+	 10,10,/*hsync len,vsync len*/
+	 FB_SYNC_OE_LOW_ACT,/*sync*/
+	 FB_VMODE_NONINTERLACED,/*vmode*/
+	 0,/*flag*/
 };
 #else
 static struct fb_videomode lvds_wvga = {
@@ -184,7 +192,7 @@ static struct fb_videomode lvds_wvga = {
 };
 #endif
 
-static struct mipi_lcd_config mipilcd_config = {//add by allenyao
+static struct mipi_lcd_config mipilcd_config = {
 	.virtual_ch		= 0x0,
 	.data_lane_num  = 0x2,
 	.max_phy_clk    = 450,
@@ -679,18 +687,29 @@ static int setup_pmic_voltages(void)
 			return -1;
 		}
 		printf("Found PFUZE100! deviceid=%x,revid=%x\n", value, rev_id);
+		/*increase SW2->3.3*/
+		value=0x72;
+		if (i2c_write(0x8, 0x35, 1, &value, 1)) {
+			printf("Set SW2VOLT error!\n");
+			return -1;
+		}
+
+		if (i2c_write(0x8, 0x36, 1, &value, 1)) {
+			printf("Set SW2STBY error!\n");
+			return -1;
+		}
+
+		if (i2c_write(0x8, 0x37, 1, &value, 1)) {
+			printf("Set SW2OFF error!\n");
+			return -1;
+		}
 		/*For camera streaks issue,swap VGEN5 and VGEN3 to power camera.
 		*sperate VDDHIGH_IN and camera 2.8V power supply, after switch:
 		*VGEN5 for VDDHIGH_IN and increase to 3V to align with datasheet
 		*VGEN3 for camera 2.8V power supply
 		*/
 		/*increase VGEN3 from 2.5 to 2.8V*/
-		if (i2c_read(0x8, 0x6e, 1, &value, 1)) {
-			printf("Read VGEN3 error!\n");
-			return -1;
-		}
-		value &= ~0xf;
-		value |= 0xa;
+ 		value =0x3a;
 		if (i2c_write(0x8, 0x6e, 1, &value, 1)) {
 			printf("Set VGEN3 error!\n");
 			return -1;
@@ -707,13 +726,8 @@ static int setup_pmic_voltages(void)
 			return -1;
 		}
 
-		/*decrease VGEN6 to 2.8V*/
-		if (i2c_read(0x8, 0x71, 1, &value, 1)) {
-			printf("Read VGEN6 error!\n");
-			return -1;
-		}
-		value &= ~0xf;
-		value |= 0xa;
+		/*decrease VGEN6 to 2.8V*/ 
+		value =0x3a; 
 		if (i2c_write(0x8, 0x71, 1, &value, 1)) {
 			printf("Set VGEN6 error!\n");
 			return -1;
@@ -914,77 +928,160 @@ msleep(int count)
 }
 #if MIPI_DSI
 
-static void power_on_and_reset_mipi_panel(void)
+#define LCD_PWR IMX_GPIO_NR(2,6)
+#define LCD_RESET IMX_GPIO_NR(6,16)
+#define LCD_BL_PWR IMX_GPIO_NR(4,15)
+
+static void panel_power_on(int on)
 {
-	int reg;
-
-	//LCD PWR
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_D6__GPIO_2_6));
-	reg = readl(GPIO2_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 6);
-	writel(reg, GPIO2_BASE_ADDR + GPIO_GDIR);
-	reg = readl(GPIO2_BASE_ADDR + GPIO_DR);
-	reg &= ~(1 << 6);
-	writel(reg, GPIO2_BASE_ADDR + GPIO_DR);
-
-	//LCD_RST_B
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_NANDF_CS3__GPIO_6_16));
-	reg = readl(GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg |= (1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_GDIR);
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-	udelay(10);
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg &= ~(1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-	udelay(50);
-	reg = readl(GPIO6_BASE_ADDR + GPIO_DR);
-	reg |= (1 << 16);
-	writel(reg, GPIO6_BASE_ADDR + GPIO_DR);
-	msleep(200);
+	if(on){
+	//LCD PWR
+	gpio_direction_output(LCD_PWR, 0);
+	
+	//LCD_RST_B
+	gpio_direction_output(LCD_RESET, 0);
+	msleep(10);
+	gpio_direction_output(LCD_RESET, 1);
+	msleep(120);
+	}else {	
+		gpio_direction_output(LCD_PWR, 1);
+		gpio_direction_output(LCD_RESET, 0);		
+	}
 
-	//LCD_BL_PWR_EN
+}
+
+static void panel_bl_on(int on){
+	//LCD_BL_PWR_EN	
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_KEY_ROW4__GPIO_4_15));
+	/*
 	reg = readl(GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_GDIR);
 	reg = readl(GPIO4_BASE_ADDR + GPIO_DR);
 	reg |= (1 << 15);
 	writel(reg, GPIO4_BASE_ADDR + GPIO_DR);
+	*/
+	gpio_direction_output(LCD_BL_PWR, on?1:0);
 }
-static void mipi_clk_enable(void)
+
+struct _mipi_dsi_phy_pll_clk {
+	u32		max_phy_clk;
+	u32		config;
+};
+
+/* configure data for DPHY PLL 27M reference clk out */
+static const struct _mipi_dsi_phy_pll_clk mipi_dsi_phy_pll_clk_table[] = {
+	{1000, 0x74}, /*  950-1000MHz	*/
+	{950,  0x54}, /*  900-950Mhz	*/
+	{900,  0x34}, /*  850-900Mhz	*/
+	{850,  0x14}, /*  800-850MHz	*/
+	{800,  0x32}, /*  750-800MHz	*/
+	{750,  0x12}, /*  700-750Mhz	*/
+	{700,  0x30}, /*  650-700Mhz	*/
+	{650,  0x10}, /*  600-650MHz	*/
+	{600,  0x2e}, /*  550-600MHz	*/
+	{550,  0x0e}, /*  500-550Mhz	*/
+	{500,  0x2c}, /*  450-500Mhz	*/
+	{450,  0x0c}, /*  400-450MHz	*/
+	{400,  0x4a}, /*  360-400MHz	*/
+	{360,  0x2a}, /*  330-360Mhz	*/
+	{330,  0x48}, /*  300-330Mhz	*/
+	{300,  0x28}, /*  270-300MHz	*/
+	{270,  0x08}, /*  250-270MHz	*/
+	{250,  0x46}, /*  240-250Mhz	*/
+	{240,  0x26}, /*  210-240Mhz	*/
+	{210,  0x06}, /*  200-210MHz	*/
+	{200,  0x44}, /*  180-200MHz	*/
+	{180,  0x24}, /*  160-180MHz	*/
+	{160,  0x04}, /*  150-160MHz	*/
+};
+static u32 cal_mipi_phy_pll(u32 max_phy_clk){
+	int i;
+	u32 pll;
+	for (i = 0; i < ARRAY_SIZE(mipi_dsi_phy_pll_clk_table); i++) {
+		if (mipi_dsi_phy_pll_clk_table[i].max_phy_clk <
+				max_phy_clk)
+			break;
+	}
+	if ((i == ARRAY_SIZE(mipi_dsi_phy_pll_clk_table)) ||
+		(max_phy_clk >
+			mipi_dsi_phy_pll_clk_table[0].max_phy_clk)) {
+		printf("failed to find data in"
+				"mipi_dsi_phy_pll_clk_table.\n");
+		return -EINVAL;
+	}
+	pll =  mipi_dsi_phy_pll_clk_table[--i].config;
+	
+	//printf("dphy_pll_config:0x%x.\n", pll);
+
+	return pll;
+}
+static void mipi_clk_enable(int enable)
 {
-	int reg;
+	u32 reg;
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
-	reg &= ~(3<<16);
-	reg |= (3<<16);
+	if(enable)
+		reg |= (MXC_CCM_CCGR_CG_MASK<<MXC_CCM_CCGR3_CG8_OFFSET);
+	else		
+		reg &= ~(MXC_CCM_CCGR_CG_MASK<<MXC_CCM_CCGR3_CG8_OFFSET);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 }
-static void dphy_write_control(unsigned long testcode, unsigned long testwrite)
+
+static void mipi_dsi_dphy_init(u32 cmd, u32 data)
 {
-	writel(0x00000000, DSI_PHY_TST_CTRL0);
-	writel((0x00010000 | testcode), DSI_PHY_TST_CTRL1);
-	writel(0x00000002, DSI_PHY_TST_CTRL0);
-	writel(0x00000000, DSI_PHY_TST_CTRL0);
-	writel((0x00000000 | testwrite), DSI_PHY_TST_CTRL1);
-	writel(0x00000002, DSI_PHY_TST_CTRL0);
-	writel(0x00000000, DSI_PHY_TST_CTRL0);
+	u32 val;
+	u32 timeout = 0;
+
+	mipi_dsi_write_register(MIPI_DSI_PHY_IF_CTRL,
+			DSI_PHY_IF_CTRL_RESET);
+	mipi_dsi_write_register(MIPI_DSI_PWR_UP, DSI_PWRUP_POWERUP);
+
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL0, 0);
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL1,
+		(0x10000 | cmd));
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL0, 2);
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL0, 0);
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL1, (0 | data));
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL0, 2);
+	mipi_dsi_write_register(MIPI_DSI_PHY_TST_CTRL0, 0);
+	val = DSI_PHY_RSTZ_EN_CLK | DSI_PHY_RSTZ_DISABLE_RST |
+			DSI_PHY_RSTZ_DISABLE_SHUTDOWN;
+	mipi_dsi_write_register(MIPI_DSI_PHY_RSTZ, val);
+
+	mipi_dsi_read_register( MIPI_DSI_PHY_STATUS, &val);
+	while ((val & DSI_PHY_STATUS_LOCK) != DSI_PHY_STATUS_LOCK) {
+		msleep(1);
+		timeout++;
+		if (timeout == MIPI_DSI_PHY_TIMEOUT) {
+			printf("Error: phy lock timeout!\n");
+			break;
+		}
+		mipi_dsi_read_register(MIPI_DSI_PHY_STATUS, &val);
+	}
+	timeout = 0;
+	while ((val & DSI_PHY_STATUS_STOPSTATE_CLK_LANE) !=
+			DSI_PHY_STATUS_STOPSTATE_CLK_LANE) {
+		msleep(1);
+		timeout++;
+		if (timeout == MIPI_DSI_PHY_TIMEOUT) {
+			printf("Error: phy lock lane timeout!\n");
+			break;
+		}
+		mipi_dsi_read_register(MIPI_DSI_PHY_STATUS, &val);
+	}
 }
+
 static void mipi_dsi_enable_controller(void)
 {
-	int rd_data, timeout = 0;
 	u32		val;
 	u32		lane_byte_clk_period;
 	/* config MIPI DSI controller*/
-	writel(0x0, DSI_PWR_UP);
-	writel(0x00000000, DSI_PHY_RSTZ);
-	writel(0x107, DSI_CLKMGR_CFG);
-	#if MIPI_DSI
-	//add by allenyao
-	val = readl(DSI_DPI_CFG);
-	val &=0x00000000;
+	mipi_dsi_write_register(MIPI_DSI_PWR_UP,DSI_PWRUP_RESET);
+	mipi_dsi_write_register(MIPI_DSI_PHY_RSTZ,DSI_PHY_RSTZ_RST);
+	mipi_dsi_write_register(MIPI_DSI_CLKMGR_CFG,DSI_CLKMGR_CFG_CLK_DIV);
+	val=0;
 	if (!(mipi_dsi.sync & FB_SYNC_VERT_HIGH_ACT))
 			val = DSI_DPI_CFG_VSYNC_ACT_LOW;
 	if (!(mipi_dsi.sync & FB_SYNC_HOR_HIGH_ACT))
@@ -997,28 +1094,24 @@ static void mipi_dsi_enable_controller(void)
 				<< DSI_DPI_CFG_COLORCODE_SHIFT;
 	val |= (mipilcd_config.virtual_ch & DSI_DPI_CFG_VID_MASK)
 				<< DSI_DPI_CFG_VID_SHIFT;
-	writel(val, DSI_DPI_CFG);
-	//add by allenyao end
-	#else
-	writel(0xf4, DSI_DPI_CFG);//not use by allenyao
-	#endif
-	writel(0x1c, DSI_PCKHDL_CFG);
-	#if MIPI_DSI
-	//add by allenyao
+	mipi_dsi_write_register(MIPI_DSI_DPI_CFG,val);
+
+	val = DSI_PCKHDL_CFG_EN_BTA |
+			DSI_PCKHDL_CFG_EN_ECC_RX |
+			DSI_PCKHDL_CFG_EN_CRC_RX;
+	
+	mipi_dsi_write_register(MIPI_DSI_PCKHDL_CFG,val);
+
 	val = (mipi_dsi.xres & DSI_VID_PKT_CFG_VID_PKT_SZ_MASK)
 				<< DSI_VID_PKT_CFG_VID_PKT_SZ_SHIFT;
 	val |= (NUMBER_OF_CHUNKS & DSI_VID_PKT_CFG_NUM_CHUNKS_MASK)
 				<< DSI_VID_PKT_CFG_NUM_CHUNKS_SHIFT;
 	val |= (NULL_PKT_SIZE & DSI_VID_PKT_CFG_NULL_PKT_SZ_MASK)
 				<< DSI_VID_PKT_CFG_NULL_PKT_SZ_SHIFT;
-	writel(val, DSI_VID_PKT_CFG);
-	//add by allenyao end
-	#else
-	writel(0x10041e0, DSI_VID_PKT_CFG);//not use by allenyao
-	#endif
-	writel(0x00001fff, DSI_CMD_MODE_CFG);
-	#if MIPI_DSI
-	/*add by allenyao*/
+	mipi_dsi_write_register(MIPI_DSI_VID_PKT_CFG,val);
+
+	mipi_dsi_write_register(MIPI_DSI_CMD_MODE_CFG,MIPI_DSI_CMD_MODE_CFG_EN_LOWPOWER);
+
 	lane_byte_clk_period = NS2PS_RATIO /
 				(mipilcd_config.max_phy_clk / BITS_PER_BYTE);
 	val  = ROUND_UP(mipi_dsi.hsync_len * mipi_dsi.pixclock /
@@ -1031,13 +1124,8 @@ static void mipi_dsi_enable_controller(void)
 				mipi_dsi.hsync_len + mipi_dsi.xres) * mipi_dsi.pixclock
 				/ NS2PS_RATIO / lane_byte_clk_period)
 				<< DSI_TME_LINE_CFG_HLINE_TIME_SHIFT;
-	writel(val , DSI_TMR_LINE_CFG);
-	/*add by allenyao end*/
-	#else
-	writel(0x1dd83e1f, DSI_TMR_LINE_CFG);	
-	#endif
-	#if MIPI_DSI
-	/*add by allenyao*/
+	mipi_dsi_write_register(MIPI_DSI_TMR_LINE_CFG,val);
+
 	val = ((mipi_dsi.vsync_len & DSI_VTIMING_CFG_VSA_LINES_MASK)
 					<< DSI_VTIMING_CFG_VSA_LINES_SHIFT);
 	val |= ((mipi_dsi.upper_margin & DSI_VTIMING_CFG_VBP_LINES_MASK)
@@ -1046,75 +1134,96 @@ static void mipi_dsi_enable_controller(void)
 				<< DSI_VTIMING_CFG_VFP_LINES_SHIFT);
 	val |= ((mipi_dsi.yres & DSI_VTIMING_CFG_V_ACT_LINES_MASK)
 				<< DSI_VTIMING_CFG_V_ACT_LINES_SHIFT);
-	writel(val, DSI_VTIMING_CFG);
-	/*add by allenyao end*/
-	#else
-	writel(0x3201866, DSI_VTIMING_CFG);
-	#endif
-	writel(0x4040d00, DSI_TMR_CFG);
-	writel(0x81, DSI_PHY_IF_CFG);//double lane
-	writel(0x0, DSI_ERROR_MSK0);
-	writel(0x0, DSI_ERROR_MSK1);
-	/* mipi_dsi_dphy_init */
-	writel(0x00, DSI_PHY_IF_CTRL);
-	writel(0x1, DSI_PWR_UP);
-	//dphy_write_control(0x44, 0x32);  /* PLL 27M ref_clk out to 1GHz */
-	dphy_write_control(0x44, 0x0c);//change by allenyao
-	writel(0x7, DSI_PHY_RSTZ);
-	rd_data = readl(DSI_PHY_STATUS);
-	while ((rd_data & 0x00000001) != 0x01) {
-		msleep(1);
-		timeout++;
-		if (timeout == 10) {
-			printf("Error: phy lock timeout!\n");
-			break;
-		}
-		rd_data = readl(DSI_PHY_STATUS);
-	}
-	timeout = 0;
-	while ((rd_data & 0x00000004) != 0x04) {
-		msleep(1);
-		timeout++;
-		if (timeout == 10) {
-			printf("Error: phy lock lane timeout!\n");
-			break;
-		}
-		rd_data = readl(DSI_PHY_STATUS);
-	}
-	return;
+	mipi_dsi_write_register(MIPI_DSI_VTIMING_CFG,val);
+
+	val = ((PHY_BTA_MAXTIME & DSI_PHY_TMR_CFG_BTA_TIME_MASK)
+			<< DSI_PHY_TMR_CFG_BTA_TIME_SHIFT);
+	val |= ((PHY_LP2HS_MAXTIME & DSI_PHY_TMR_CFG_LP2HS_TIME_MASK)
+			<< DSI_PHY_TMR_CFG_LP2HS_TIME_SHIFT);
+	val |= ((PHY_HS2LP_MAXTIME & DSI_PHY_TMR_CFG_HS2LP_TIME_MASK)
+			<< DSI_PHY_TMR_CFG_HS2LP_TIME_SHIFT);
+	mipi_dsi_write_register(MIPI_DSI_PHY_TMR_CFG,val);
+
+	val = (((mipilcd_config.data_lane_num - 1) &
+		DSI_PHY_IF_CFG_N_LANES_MASK)
+		<< DSI_PHY_IF_CFG_N_LANES_SHIFT);
+	val |= ((PHY_STOP_WAIT_TIME & DSI_PHY_IF_CFG_WAIT_TIME_MASK)
+			<< DSI_PHY_IF_CFG_WAIT_TIME_SHIFT);
+	mipi_dsi_write_register(MIPI_DSI_PHY_IF_CFG,val);
+
+	mipi_dsi_read_register(MIPI_DSI_ERROR_ST0,&val);
+	mipi_dsi_read_register(MIPI_DSI_ERROR_ST1,&val);
+	mipi_dsi_write_register(MIPI_DSI_ERROR_MSK0,0);
+	mipi_dsi_write_register(MIPI_DSI_ERROR_MSK1,0);
+
+	mipi_dsi_dphy_init(DSI_PHY_CLK_INIT_COMMAND,
+				cal_mipi_phy_pll(mipilcd_config.max_phy_clk));
+
 }
+static void mipi_dsi_disable_controller(void)
+{
+	mipi_dsi_write_register(MIPI_DSI_PHY_IF_CTRL,
+			DSI_PHY_IF_CTRL_RESET);
+	mipi_dsi_write_register(MIPI_DSI_PWR_UP, DSI_PWRUP_RESET);
+	mipi_dsi_write_register(MIPI_DSI_PHY_RSTZ, DSI_PHY_RSTZ_RST);
+}
+
 static void mipi_dsi_set_mode(int cmd_mode)
 {
-	u32 reg;
+	u32	val;
+
 	if (cmd_mode) {
-		writel(0x00, DSI_PWR_UP);
-		reg = readl(DSI_CMD_MODE_CFG);
-		reg |= 0x1;
-		writel(reg, DSI_CMD_MODE_CFG);
-		writel(0x0, DSI_VID_MODE_CFG);
-		writel(0x1, DSI_PWR_UP);
+		mipi_dsi_write_register(MIPI_DSI_PWR_UP,
+			DSI_PWRUP_RESET);
+		mipi_dsi_read_register(MIPI_DSI_CMD_MODE_CFG, &val);
+		val |= MIPI_DSI_CMD_MODE_CFG_EN_CMD_MODE;
+		mipi_dsi_write_register(MIPI_DSI_CMD_MODE_CFG, val);
+		mipi_dsi_write_register(MIPI_DSI_VID_MODE_CFG, 0);
+		mipi_dsi_write_register(MIPI_DSI_PWR_UP,
+			DSI_PWRUP_POWERUP);
 	} else {
-		writel(0x00, DSI_PWR_UP);
-		reg = readl(DSI_CMD_MODE_CFG);
-		reg &= ~(0x1<<0);
-		writel(reg, DSI_CMD_MODE_CFG);
-		writel(0x1ff, DSI_VID_MODE_CFG);
-		writel(0x1, DSI_PWR_UP);
-		writel(0x1, DSI_PHY_IF_CTRL);
+		mipi_dsi_write_register(MIPI_DSI_PWR_UP,
+			DSI_PWRUP_RESET);
+		 /* Disable Command mode when tranfering video data */
+		mipi_dsi_read_register(MIPI_DSI_CMD_MODE_CFG, &val);
+		val &= ~MIPI_DSI_CMD_MODE_CFG_EN_CMD_MODE;
+		mipi_dsi_write_register(MIPI_DSI_CMD_MODE_CFG, val);
+		val = DSI_VID_MODE_CFG_EN | DSI_VID_MODE_CFG_EN_BURSTMODE |
+				DSI_VID_MODE_CFG_EN_LP_MODE;
+		mipi_dsi_write_register(MIPI_DSI_VID_MODE_CFG, val);
+		mipi_dsi_write_register( MIPI_DSI_PWR_UP,
+			DSI_PWRUP_POWERUP);
+		mipi_dsi_write_register(MIPI_DSI_PHY_IF_CTRL,
+				DSI_PHY_IF_CTRL_TX_REQ_CLK_HS);
 	}
 }
-static void mipi_dsi_enable()
+static void mipi_dsi_enable(void)
 {
+	struct mipipanel_info* pi;
+
 	int err;
-	msleep(5);
-	mipi_clk_enable();
+	mipi_clk_enable(1);
 	msleep(5);
 	mipi_dsi_enable_controller();	
-    msleep(5);
-	err = mipi_panel_init_def();
+	msleep(100);
+	//fixed lcd panel type
+	setenv("panel","SI-QHD");
+	err = mipi_panel_detect(&pi);
 	if (err < 0) {
-		printf("lcd init failed\n");
-		return;
+		printf("init default lcd panel\n");
+		mipi_panel_init_def();
+	}else {
+		panel_name = pi->name;
+		//FIXME: reinit MIPI controller??
+		memcpy(&mipi_dsi,pi->vm,sizeof(mipi_dsi));
+		memcpy(&mipilcd_config,pi->phy,sizeof(mipilcd_config));
+		//panel_power_on(0);
+		//panel_power_on(1);
+		panel_info_init();
+		//mipi_dsi_disable_controller();
+		//msleep(5);
+		mipi_dsi_enable_controller();
+		pi->init();
 	}
 	
     msleep(5);
@@ -1141,17 +1250,21 @@ void lcd_enable(void)
 	*/
 	g_ipu_hw_rev = IPUV3_HW_REV_IPUV3H;
 
-	//def brightness is 120 on android
-	imx_pwm_config(pwm0, 24000, 50000);
-	imx_pwm_enable(pwm0);
+	panel_bl_on(0);
+
 
 	/* PWM backlight */
 	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_SD1_DAT3__PWM1_PWMO));
+
+	//def brightness is 120 on android
+	imx_pwm_config(pwm0, 24000, 50000);
+	imx_pwm_enable(pwm0);
 
 	/* Disable ipu1_clk/ipu1_di_clk_x/ldb_dix_clk/mipi_clk. */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
 	reg &= ~(0x3F03F);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
+
 
 #if defined CONFIG_MX6Q
 	/*
@@ -1342,7 +1455,7 @@ void lcd_enable(void)
 			DI_PCLK_PLL3, 26400000);
 	#elif defined CONFIG_MX6DL
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 26400000);
+			DI_PCLK_PLL3, 0);
 	#endif
 #else
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
@@ -1365,10 +1478,8 @@ void lcd_enable(void)
 		reg &= ~(0x0000030);
 		writel(reg, IOMUXC_BASE_ADDR + 0xC);
 	}
-#if defined(CONFIG_MX6Q) || defined(CONFIG_MX6DL)
-	power_on_and_reset_mipi_panel();
+	panel_power_on(1);
 	mipi_dsi_enable();
-#endif	
 #else //ldb
 	/*
 	 * LVDS0 mux to IPU1 DI0.
@@ -1588,6 +1699,10 @@ int board_init(void)
 	//memset(gd->fb_base,0,CONFIG_FB_SIZE);
 #endif
 
+	//shutdown motor
+	mxc_iomux_v3_setup_pad(MX6X_IOMUX(PAD_GPIO_4__GPIO_1_4));
+	gpio_direction_output(TDH_MOTOR_PWR_EN, 1);
+
 
 	return 0;
 }
@@ -1738,6 +1853,11 @@ extern int mfg_check_and_clean_flag(void);
 int board_late_init(void)
 {
 	int ret = 0;
+	#if  defined(CONFIG_LCD)||defined(CONFIG_VIDEO)
+	//turn back light
+	panel_bl_on(1);
+	#endif
+
 	if(mfg_check_and_clean_flag()){
 		run_command("download", 0);
 	}
@@ -1777,6 +1897,12 @@ char* append_commandline_extra(char* cmdline){
 		strcat(newcmdline,buffer);
 	}
 	#endif
+	if(panel_name){
+		char buffer[128];
+		sprintf(buffer," panel=%s",panel_name);
+		strcat(newcmdline,buffer);
+	}
+
 	return newcmdline;
 }
 #endif
@@ -1906,7 +2032,6 @@ U_BOOT_CMD(
 
 static int do_i2cport(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	char buffer[16];
 	int port;
     if(argc>1){
         port = simple_strtol(argv[1],0,10);
@@ -1928,6 +2053,7 @@ static int do_i2cport(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 U_BOOT_CMD(
         i2cport, CONFIG_SYS_MAXARGS, 0, do_i2cport, "i2cport - switch mxc i2cport[1|2|3]", NULL
 );
+
 
 
 int checkboard(void)
@@ -2123,7 +2249,7 @@ int misc_init_r (void)
 			lcd_screen_clear();
 			if(!bmp_manager_getbmp("bmp.bat0",&batbmp)){
 				bmp_manager_readbmp("bmp.bat0",CONFIG_SYS_LOAD_ADDR,0x2000000);
-				draw_bmp(CONFIG_SYS_LOAD_ADDR,0);
+				draw_bmp((u8*)CONFIG_SYS_LOAD_ADDR,0);
 			}else {
 				draw_bmp(bmp_bat0,0);
 			}

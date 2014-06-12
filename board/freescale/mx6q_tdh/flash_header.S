@@ -61,11 +61,19 @@ image_len:        .word _end_of_copy  - TEXT_BASE + CONFIG_FLASH_HEADER_OFFSET
 #endif
 plugin:           .word 0x0
 
-#if defined CONFIG_MX6DL_DDR3
-	#if defined CONFIG_DDR_32BIT
-		#include "6dl_ddr3_32.inc"
-	#else /* i.MX6DL 64BIT-DDR */
-		#include "6dl_ddr3_64.inc"
+#if defined CONFIG_MX6DL
+	#if defined (CONFIG_LPDDR2)
+		#if defined CONFIG_DDR_32BIT
+			#include "6dl_lpddr2_32.inc"
+		#else
+			#include "6dl_lpddr2_64.inc"
+		#endif
+	#else
+		#if defined CONFIG_DDR_32BIT
+			#include "6dl_ddr3_32.inc"
+		#else /* i.MX6DL 64BIT-DDR */
+			#include "6dl_ddr3_64.inc"
+		#endif
 	#endif
 #else  /* i.MX6Q */
 	#if defined (CONFIG_LPDDR2)
