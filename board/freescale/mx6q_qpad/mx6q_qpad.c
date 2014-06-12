@@ -1821,12 +1821,23 @@ int autoupdate_mode_detect(void){
 #endif
 
 #ifdef BOARD_LATE_INIT
+extern int mfg_check_and_clean_flag(void);
 int board_late_init(void)
 {
 	int ret = 0;
 	#if  defined(CONFIG_LCD)||defined(CONFIG_VIDEO)
 	//turn back light
 	panel_bl_on(1);
+	#endif
+
+	if(mfg_check_and_clean_flag()){
+		run_command("download", 0);
+	}
+	#ifdef ENABLE_KEYPAD_SHORTCUT
+	if(mx6_board_rev()!=BOARD_REV_INVALID){
+		if(eKeyPadBootModeMfg==keypad_detect_bootmode())
+		run_command("download", 0);
+	}
 	#endif
 	return ret;
 }
