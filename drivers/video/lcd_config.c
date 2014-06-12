@@ -295,6 +295,7 @@ static inline int mipi_generic_write(u32* buf,int l){
 #define W_COM_1A_0P(o) \
 	do{ \
 		u32 buf[DSI_CMD_BUF_MAXSIZE];\
+		memset(buf,0,sizeof(u32)*DSI_CMD_BUF_MAXSIZE); \
 		buf[0]=o;\
 		mipi_generic_write(buf,1);\
 	}while(0)
@@ -394,7 +395,7 @@ static inline int mipi_generic_write(u32* buf,int l){
 	
 #define W_COM_1A_23P(o,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23) \
 				do{ \
-					u32 buf[DSI_CMD_BUF_MAXSIZE];\
+					u32 buf[DSI_CMD_BUF_MAXSIZE];\					
 					buf[0]=o|(p1<<8)|(p2<<16)|(p3<<24);\
 					buf[1]=p4|(p5<<8)|(p6<<16)|(p7<<24);\
 					buf[2]=p8|(p9<<8)|(p10<<16)|(p11<<24);\
@@ -406,19 +407,21 @@ static inline int mipi_generic_write(u32* buf,int l){
 
 static int mipi_write_array(unsigned char* s,int l){
 		u32 buf[DSI_CMD_BUF_MAXSIZE];
-		int i=0;
+		int i=0;		
+		int err;
 		int bytes=l;
+		//memset(buf,0,sizeof(u32)*DSI_CMD_BUF_MAXSIZE);
 		do{
 			if(l>=4){
 			    buf[i++]=s[0]+(s[1]<<8)+(s[2]<<16)+(s[3]<<24);
 				l-=4;s+=4;
 			}else{
 				if(3==l){
-					buf[i]=s[0]|(s[1]<<8)|(s[2]<<16);
+					buf[i]=s[0]+(s[1]<<8)+(s[2]<<16);
 					l-=3;
 				}else if(2==l){
-					buf[i]=s[0]|(s[1]<<8);
-					l-=2;				
+					buf[i]=s[0]+(s[1]<<8);
+					l-=2;
 				}else if(1==l){
 					buf[i]=s[0];
 					l-=1;
@@ -428,7 +431,10 @@ static int mipi_write_array(unsigned char* s,int l){
 			}
 		}while(1);
 		
-		return mipi_generic_write(buf,bytes);\	
+		err = mipi_dsi_pkt_write(MIPI_DSI_DCS_LONG_WRITE,
+						buf, bytes);
+		CHECK_RETCODE(err);
+		return err;
 }
 static int otm9605a_detect(void){
 	int err,count=10;
@@ -1102,274 +1108,73 @@ static int sii450_detect(void){
 	}*/
 	return 0;
 }
-#define SPI_2825_cmd(c) \
-	do{ \
-		u32 buf[DSI_CMD_BUF_MAXSIZE];\
-		buf[0]=c;\
-		mipi_generic_write(buf,1);\
-	}while(0)
-		
-#define SPI_2825_data8(d) \	
-	do{ \
-		u32 buf[DSI_CMD_BUF_MAXSIZE];\
-		buf[0]=d;\
-		mipi_generic_write(buf,1);\
-	}while(0)
-
-static void __udelay(int time)
-{
-	int i, j;
-
-	for (i = 0; i < time; i++) {
-		for (j = 0; j < 200; j++) {
-			asm("nop");
-			asm("nop");
-		}
-	}
-}
-
 #define Delayms(n) \
-	__udelay(n*1000)
+	msleep(n)
 
-#define SHORT_WRITE_CMD
-#undef SHORT_WRITE_CMD
 static int sii450_init(void){
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xb9);	 // Set EXTC,
- SPI_2825_data8(0xff);
- SPI_2825_data8(0x83);
- SPI_2825_data8(0x89);
- #else
- W_COM_1A_3P(0xb9,0xff,0x83,0x89);
- #endif
+ //W_COM_1A_3P(0xb9,0xff,0x83,0x89);
+ {
+	 unsigned char dcs0[]={
+		 0xb9,0xff,0x83,0x89,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  Delayms(1);
 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xBA);	   
- SPI_2825_data8(0x41);
- SPI_2825_data8(0x93);
- #else 
- W_COM_1A_2P(0xba,0x41,0x93);
- #endif
-
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xc6);	 // Set Sleep in Sequence
- SPI_2825_data8(0x08);
- #else 
- W_COM_1A_1P(0xc6,0x08); 
- #endif
+ //W_COM_1A_2P(0xba,0x41,0x93);
+ {
+	 unsigned char dcs0[]={
+		 0xba,0x41,0x93
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
+ //W_COM_1A_1P(0xc6,0x08); 
+ {
+	 unsigned char dcs0[]={
+		 0xc6,0x08,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  Delayms(1);	
 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xDe);	 // Set Sleep in Sequence
- SPI_2825_data8(0x05);
- SPI_2825_data8(0x58); 		
- #else 
- W_COM_1A_2P(0xde,0x05,0x58); 
- #endif
+ //W_COM_1A_2P(0xde,0x05,0x58); 
+ {
+	 unsigned char dcs0[]={
+		 0xde,0x05,0x58,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  Delayms(1);			
 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xB1);	   
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x04);
- SPI_2825_data8(0xE3);
- SPI_2825_data8(0x9A);
- SPI_2825_data8(0x10);
- SPI_2825_data8(0x11);
- SPI_2825_data8(0x8F);
- SPI_2825_data8(0xEF);
- SPI_2825_data8(0x28);
- SPI_2825_data8(0x30);
- SPI_2825_data8(0x23);
- SPI_2825_data8(0x23);
- SPI_2825_data8(0x42);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x3A);
- SPI_2825_data8(0xF5);
- SPI_2825_data8(0x20);
- SPI_2825_data8(0x00);
- #else 
- W_COM_1A_19P(0xb1,0x00,0x00,0x04,0xe3,0x9a,0x10,0x11,0x8f,0xef,0x28,0x30,0x23,0x23,0x42,0x00,0x3a,0xf5,0x20,0x00);
- #endif
 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xB4);
- SPI_2825_data8(0x80);    //INVERSION
- SPI_2825_data8(0x08);    
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x32);      
- SPI_2825_data8(0x10);      
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x00);    	
- SPI_2825_data8(0x00);   
- SPI_2825_data8(0x00);    	
- SPI_2825_data8(0x00);       
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x37);    
- SPI_2825_data8(0x0A);    
- SPI_2825_data8(0x40);    
- SPI_2825_data8(0x04);    
- SPI_2825_data8(0x37);    
- SPI_2825_data8(0x0A);	
- SPI_2825_data8(0x40); 
- SPI_2825_data8(0x14); 
- SPI_2825_data8(0xff);
- SPI_2825_data8(0xff);
- SPI_2825_data8(0x0A);
- #else 
- W_COM_1A_23P(0xb4,0x80,0x08,0x00,0x32,0x10,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x37,0x0a,0x40,
- 			  0x04,0x37,0x0a,0x40,0x14,0xff,0xff,0x0a);
- #endif
+ //W_COM_1A_19P(0xb1,0x00,0x00,0x04,0xe3,0x9a,0x10,0x11,0x8f,0xef,0x28,0x30,0x23,0x23,0x42,0x00,0x3a,0xf5,0x20,0x00);
+ {
+	unsigned char dcs0[]={
+		0xb1,0x00,0x00,0x04,0xe3,0x9a,0x10,0x11,0x8f,0xef,0x28,0x30,0x23,0x23,0x42,0x00,
+		0x3a,0xf5,0x20,0x00,
+	};
+	mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	
+ }	
 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xB2);	  // Set Display
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x78);   
- SPI_2825_data8(0x08);   
- SPI_2825_data8(0x03);   
- SPI_2825_data8(0x3f);    
- SPI_2825_data8(0x80);
- #else
- W_COM_1A_7P(0xb2,0x00,0x00,0x78,0x08,0x03,0x3f,0x80);
- #endif
- 
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xc1);	 //127¸ö²ÎÊý		
- SPI_2825_data8(0x01);
- SPI_2825_data8(0x02);
- SPI_2825_data8(0x08);	
- SPI_2825_data8(0x17);
- SPI_2825_data8(0x20);
- SPI_2825_data8(0x27);
- SPI_2825_data8(0x2D);
- SPI_2825_data8(0x32);
- SPI_2825_data8(0x38);
- SPI_2825_data8(0x40);
- SPI_2825_data8(0x48);
- SPI_2825_data8(0x4F);
- SPI_2825_data8(0x57);
- SPI_2825_data8(0x5F);
- SPI_2825_data8(0x67);
- SPI_2825_data8(0x70);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x81);
- SPI_2825_data8(0x89);
- SPI_2825_data8(0x91);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0xa1);
- SPI_2825_data8(0xA8);
- SPI_2825_data8(0xB0);
- SPI_2825_data8(0xB9);
- SPI_2825_data8(0xC2);
- SPI_2825_data8(0xC9);
- SPI_2825_data8(0xD0);
- SPI_2825_data8(0xD9);
- SPI_2825_data8(0xE2);
- SPI_2825_data8(0xE9);
- SPI_2825_data8(0xF3);
- SPI_2825_data8(0xFA);
- SPI_2825_data8(0xFF);
- SPI_2825_data8(0xD0);
- SPI_2825_data8(0xAF);
- SPI_2825_data8(0xDF);
- SPI_2825_data8(0xA9);
- SPI_2825_data8(0xA9);
- SPI_2825_data8(0x3D);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x92);
- SPI_2825_data8(0xC0);
- SPI_2825_data8(0x02);
- SPI_2825_data8(0x08);
- SPI_2825_data8(0x17);
- SPI_2825_data8(0x20);
- SPI_2825_data8(0x27);
+  //W_COM_1A_23P(0xb4,0x80,0x08,0x00,0x32,0x10,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x37,0x0a,0x40,
+ 			 // 0x04,0x37,0x0a,0x40,0x14,0xff,0xff,0x0a);
+  {
+	 unsigned char dcs0[]={
+		 0xb4,0x80,0x08,0x00,0x32,0x10,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x37,0x0a,0x40,
+ 			 0x04,0x37,0x0a,0x40,0x14,0xff,0xff,0x0a,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+  }
 
 
- SPI_2825_data8(0x2d);
- SPI_2825_data8(0x32);
- SPI_2825_data8(0x38);	
- SPI_2825_data8(0x40);
- SPI_2825_data8(0x48);
- SPI_2825_data8(0x4f);
- SPI_2825_data8(0x57);
- SPI_2825_data8(0x5f);
- SPI_2825_data8(0x67);
- SPI_2825_data8(0x70);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x81);
- SPI_2825_data8(0x89);
- SPI_2825_data8(0x91);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0xa1);
- SPI_2825_data8(0xa8);
- SPI_2825_data8(0xb0);
- SPI_2825_data8(0xb9);
- SPI_2825_data8(0xc2);
- SPI_2825_data8(0xc9);
- SPI_2825_data8(0xd0);
- SPI_2825_data8(0xd9);
- SPI_2825_data8(0xe2);
- SPI_2825_data8(0xe9);
- SPI_2825_data8(0xf3);
- SPI_2825_data8(0xfa);
- SPI_2825_data8(0xff);
- SPI_2825_data8(0xD0);
- SPI_2825_data8(0xAF);
- SPI_2825_data8(0xDF);
- SPI_2825_data8(0xA9);
- SPI_2825_data8(0xA9);
- SPI_2825_data8(0x3D);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x92);
- SPI_2825_data8(0xc0);
- SPI_2825_data8(0x02);
- SPI_2825_data8(0x08);
- SPI_2825_data8(0x17);
- SPI_2825_data8(0x20);
- SPI_2825_data8(0x27);
- SPI_2825_data8(0x2d);
- SPI_2825_data8(0x32);
- SPI_2825_data8(0x38);
- SPI_2825_data8(0x40);
- SPI_2825_data8(0x48);
- SPI_2825_data8(0x4f);
- 
- SPI_2825_data8(0x57);
- SPI_2825_data8(0x5f);
- SPI_2825_data8(0x67);	
- SPI_2825_data8(0x70);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x81);
- SPI_2825_data8(0x89);
- SPI_2825_data8(0x91);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0xa1);
- SPI_2825_data8(0xa8);
- SPI_2825_data8(0xb0);
- SPI_2825_data8(0xb9);
- SPI_2825_data8(0xc2);
- SPI_2825_data8(0xc9);
- SPI_2825_data8(0xd0);
- SPI_2825_data8(0xd9);
- SPI_2825_data8(0xe2);
- SPI_2825_data8(0xe9);
- SPI_2825_data8(0xf3);
- SPI_2825_data8(0xfa);
- SPI_2825_data8(0xff);
- SPI_2825_data8(0xd0);
- SPI_2825_data8(0xaf);
- SPI_2825_data8(0xdf);
- SPI_2825_data8(0xa9);
- SPI_2825_data8(0xa9);
- SPI_2825_data8(0x3d);
- SPI_2825_data8(0x79);
- SPI_2825_data8(0x92);
- SPI_2825_data8(0xc0);
- #else
+ //W_COM_1A_7P(0xb2,0x00,0x00,0x78,0x08,0x03,0x3f,0x80);
+ {
+	 unsigned char dcs0[]={
+		 0xb2,0x00,0x00,0x78,0x08,0x03,0x3f,0x80,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+  }
+
 {
 	unsigned char dcs0[]={
 		0xc1,0x01,0x02,0x08,0x17,0x20,0x27,0x2d,0x32,0x38,0x40,0x48,0x4f,0x57,0x5f,0x67,
@@ -1387,70 +1192,15 @@ static int sii450_init(void){
 		0x4f,0x57,0x5f,0x67,0x70,0x79,0x81,0x89,0x91,0x99,0xa1,0xa8,0xb0,0xb9,0xc2,0xc9,
 		0xd0,0xd9,0xe2,0xe9,0xf3,0xfa,0xff,0xd0,0xaf,0xdf,0xa9,0xa9,0x3d,0x79,0x92,0xc0,
 	};
-	printf("%d write dcs0 %d\n",__LINE__,sizeof(dcs0)/sizeof(dcs0[0]));
 	mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));
 	
-	printf("%d write dcs1 %d\n",__LINE__,sizeof(dcs1)/sizeof(dcs1[1]));
-	mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[1]));
+	mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[0]));
 	
-	printf("%d write dcs2 %d\n",__LINE__,sizeof(dcs2)/sizeof(dcs2[1]));
-	mipi_write_array(dcs2,sizeof(dcs2)/sizeof(dcs2[1]));
+	mipi_write_array(dcs2,sizeof(dcs2)/sizeof(dcs2[0]));
 
-	printf("%d write dcs3 %d\n",__LINE__,sizeof(dcs3)/sizeof(dcs3[1]));
-	mipi_write_array(dcs3,sizeof(dcs3)/sizeof(dcs3[1]));
+	mipi_write_array(dcs3,sizeof(dcs3)/sizeof(dcs3[0]));
 }
- #endif
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xD5);	 		
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);	
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x01);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x60);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x32);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x10);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x76);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x54);
- SPI_2825_data8(0x10);
- SPI_2825_data8(0x32);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x99);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x45);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x67);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x01);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x23);
- SPI_2825_data8(0x23);
- SPI_2825_data8(0x01);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- SPI_2825_data8(0x88);
- #else
+
  {
 	unsigned char dcs0[]={
 		0xd5,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x60,0x00,0x99,0x88,0x99,0x88,0x88,
@@ -1460,114 +1210,74 @@ static int sii450_init(void){
 		0x88,0x99,0x88,0x45,0x88,0x67,0x88,0x01,0x88,0x23,0x23,0x01,0x88,0x88,0x88,0x88,
 		0x88,
 	};
-	
-	printf("%d write dcs0 %d\n",__LINE__,sizeof(dcs0)/sizeof(dcs0[0]));
+
 	mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));
 	
-	printf("%d write dcs1 %d\n",__LINE__,sizeof(dcs1)/sizeof(dcs1[1]));
-	mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[1]));
+	mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[0]));
  }
- #endif
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xE0);
- SPI_2825_data8(0x05);  
- SPI_2825_data8(0x14); 
- SPI_2825_data8(0x18); 
- SPI_2825_data8(0x2D); 
- SPI_2825_data8(0x34); 
- SPI_2825_data8(0x3F); 
- SPI_2825_data8(0x20);  
- SPI_2825_data8(0x3c); 
- SPI_2825_data8(0x08);
- SPI_2825_data8(0x0e); 
- SPI_2825_data8(0x0e); 
- SPI_2825_data8(0x11); 
- SPI_2825_data8(0x13); 
- SPI_2825_data8(0x10); 
- SPI_2825_data8(0x12); 
- SPI_2825_data8(0x1A); 
- SPI_2825_data8(0x1c);  
- SPI_2825_data8(0x05); 
- SPI_2825_data8(0x14); 
- SPI_2825_data8(0x18); 
- SPI_2825_data8(0x2D); 
- SPI_2825_data8(0x34); 
- SPI_2825_data8(0x3f);  
- SPI_2825_data8(0x20);
- SPI_2825_data8(0x3c);
- SPI_2825_data8(0x08); 
- SPI_2825_data8(0x0e); 
- SPI_2825_data8(0x0e); 
- SPI_2825_data8(0x11); 
- SPI_2825_data8(0x13); 
- SPI_2825_data8(0x10); 
- SPI_2825_data8(0x12); 
- SPI_2825_data8(0x1A); 
- SPI_2825_data8(0x1c);  
- #else
+
  {
 	 unsigned char dcs0[]={
 	 	0xe0,0x05,0x14,0x18,0x2d,0x34,0x3f,0x20,0x3c,0x08,0x0e,0x0e,0x11,0x13,0x10,0x12,
 		0x1a,0x1c,0x05,0x14,0x18,0x2d,0x34,0x3f,0x20,0x3c,0x08,0x0e,0x0e,0x11,0x13,0x10,
 	 };
 	 unsigned char dcs1[]={
-	 	0x12,0x1a,0x1c,
+		 0x12,0x1a,0x1c,
 	 };
 	 
-	 printf("%d write dcs0 %d\n",__LINE__,sizeof(dcs0)/sizeof(dcs0[0]));
 	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));
 	 
-	 printf("%d write dcs1 %d\n",__LINE__,sizeof(dcs1)/sizeof(dcs1[1]));
-	 mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[1]));
+	 mipi_write_array(dcs1,sizeof(dcs1)/sizeof(dcs1[0]));
+
+	 
   }
- #endif
-
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xB6);	  
- SPI_2825_data8(0x00);    
- SPI_2825_data8(0x96);
- #else
- W_COM_1A_2P(0xb6,0x00,0x96);
- #endif
+ //W_COM_1A_2P(0xb6,0x00,0x96);
+ {
+	 unsigned char dcs0[]={
+		 0xb6,0x00,0x96
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xCC);	
- SPI_2825_data8(0x02);
- #else
- W_COM_1A_1P(0xcc,0x02);
- #endif
-
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xCb);	
- SPI_2825_data8(0x07);
- SPI_2825_data8(0x07); 
- #else
- W_COM_1A_2P(0xcb,0x07,0x07);
- #endif
+ //W_COM_1A_1P(0xcc,0x02);
+ {
+	 unsigned char dcs0[]={
+		 0xcc,0x02,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
+ //W_COM_1A_2P(0xcb,0x07,0x07);
+ {
+	 unsigned char dcs0[]={
+		 0xcb,0x07,0x07
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0xbb);	
- SPI_2825_data8(0x00);
- SPI_2825_data8(0x00);
- SPI_2825_data8(0xff);
- SPI_2825_data8(0x80);
- #else
- W_COM_1A_4P(0xbb,0x00,0x00,0xff,0x80);
- #endif
-
- #ifdef SHORT_WRITE_CMD
- SPI_2825_cmd(0x11);	
- #else
- W_COM_1A_0P(0x11);
- #endif
+ //W_COM_1A_4P(0xbb,0x00,0x00,0xff,0x80);
+ {
+	 unsigned char dcs0[]={
+		 0xbb,0x00,0x00,0xff,0x80,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
+ //W_COM_1A_0P(0x11);
+ {
+	 unsigned char dcs0[]={
+		 0x11,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  Delayms(120);	
  
 
- #ifdef SHORT_WRITE_CMD 
- SPI_2825_cmd(0x29);
- #else
  W_COM_1A_0P(0x29);
- #endif
+ {
+	 unsigned char dcs0[]={
+		 0x29,
+	 };
+	 mipi_write_array(dcs0,sizeof(dcs0)/sizeof(dcs0[0]));	 
+ }
  Delayms(10);
  return 0;
 }
@@ -1628,9 +1338,9 @@ static struct fb_videomode vm_sii450={
 	60,/*refresh*/
 	540,960,/*xres,yres*/
 	30500,/*pixclock ps*/
-	9, 14, /*left margin,right margin*/
-	8, 10,/*upper margin,lower margin*/
-	5,8,/*hsync len,vsync len*/
+	10, 10, /*left margin,right margin*/
+	50, 30,/*upper margin,lower margin*/
+	10,10,/*hsync len,vsync len*/
 	FB_SYNC_OE_LOW_ACT,/*sync*/
 	FB_VMODE_NONINTERLACED,/*vmode*/
 	0,/*flag*/
@@ -1638,7 +1348,7 @@ static struct fb_videomode vm_sii450={
 static struct mipi_lcd_config phy_sii450= {
 	.virtual_ch		= 0x0,
 	.data_lane_num  = 0x2,
-	.max_phy_clk    = 450,
+	.max_phy_clk    = 500,
 	.dpi_fmt		= MIPI_RGB888,
 };
 
