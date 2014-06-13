@@ -1338,9 +1338,15 @@ static struct fb_videomode vm_sii450={
 	60,/*refresh*/
 	540,960,/*xres,yres*/
 	30500,/*pixclock ps*/
+	#if 0
+	0x38, 0x18, /*left margin,right margin*/
+	0x15, 0x09,/*upper margin,lower margin*/
+	0x16,0x05,/*hsync len,vsync len*/
+	#else	
 	10, 10, /*left margin,right margin*/
 	50, 30,/*upper margin,lower margin*/
 	10,10,/*hsync len,vsync len*/
+	#endif
 	FB_SYNC_OE_LOW_ACT,/*sync*/
 	FB_VMODE_NONINTERLACED,/*vmode*/
 	0,/*flag*/

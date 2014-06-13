@@ -1203,7 +1203,7 @@ static void mipi_dsi_enable(void)
 
 	int err;
 	mipi_clk_enable(1);
-	msleep(10);
+	msleep(5);
 	mipi_dsi_enable_controller();	
 	msleep(100);
 	//fixed lcd panel type
@@ -1455,7 +1455,7 @@ void lcd_enable(void)
 			DI_PCLK_PLL3, 26400000);
 	#elif defined CONFIG_MX6DL
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 26400000);
+			DI_PCLK_PLL3, 0);
 	#endif
 #else
 	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
