@@ -1205,7 +1205,7 @@ static void mipi_dsi_enable(void)
 	mipi_clk_enable(1);
 	msleep(5);
 	mipi_dsi_enable_controller();	
-	msleep(100);
+	//msleep(100);
 	//fixed lcd panel type
 	setenv("panel","SI-QHD");
 	err = mipi_panel_detect(&pi);
@@ -1220,7 +1220,7 @@ static void mipi_dsi_enable(void)
 		//panel_power_on(0);
 		//panel_power_on(1);
 		panel_info_init();
-		//mipi_dsi_disable_controller();
+		mipi_dsi_disable_controller();
 		//msleep(5);
 		mipi_dsi_enable_controller();
 		pi->init();
