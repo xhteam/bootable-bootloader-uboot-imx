@@ -1198,95 +1198,6 @@ static void mipi_dsi_set_mode(int cmd_mode)
 	}
 }
 
-static char* findtoken(char* findstring,char token){
-	char* s=findstring;
-	while(*s!='\0'){
-		if(token==*s) return s;
-		s++;
-	}
-	return NULL;
-}
-static void apply_mipi_patch(void){
-	char* env = getenv("dispformat");
-	if(env){
-		int pclk,vs,vbp,vfp,hs,hbp,hfp,phyclk;
-		char fmt[128];
-		int length=strlen(env);
-		char* s;
-		char* ds= strdup(env);
-		char* token;
-		pclk=vs=vbp=vfp=hs=hbp=hfp=phyclk=0;
-		s = ds;
-		if((token=findtoken(s,','))){
-			*token='\0';
-			pclk = simple_strtoul(s, NULL, 16);
-			printf("find pclk=%d\n",pclk);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			vs = simple_strtoul(s, NULL, 16);
-			printf("find vs=%d\n",vs);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			vbp = simple_strtoul(s, NULL, 16);
-			printf("find vbp=%d\n",vbp);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			vfp = simple_strtoul(s, NULL, 16);
-			printf("find vfp=%d\n",vfp);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			hs = simple_strtoul(s, NULL, 16);
-			printf("find hs=%d\n",hs);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			hbp = simple_strtoul(s, NULL, 16);
-			printf("find hbp=%d\n",hbp);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			hfp = simple_strtoul(s, NULL, 16);
-			printf("find hfp=%d\n",hfp);
-			s = ++token;
-		}
-		if((*s!='\0')&&(token=findtoken(s,','))){
-			*token='\0';
-			phyclk = simple_strtoul(s, NULL, 16);
-			printf("find phyclk=%d\n",phyclk);
-			s = ++token;
-		}
-
-		mipi_dsi.pixclock = pclk;
-		mipi_dsi.vsync_len = vs;
-		mipi_dsi.upper_margin = vbp;
-		mipi_dsi.lower_margin = vfp;
-		mipi_dsi.hsync_len = hs;
-		mipi_dsi.right_margin = hbp;
-		mipi_dsi.left_margin = hfp;
-		mipilcd_config.max_phy_clk = phyclk;
-
-	}
-}
-
-static int do_dispformat(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
-{
-	apply_mipi_patch();
-	return 0;
-}
-
-U_BOOT_CMD(
-        dispformat, CONFIG_SYS_MAXARGS, 0, do_dispformat, NULL, NULL
-);
 
 static void mipi_dsi_enable(void)
 {
@@ -1305,13 +1216,8 @@ static void mipi_dsi_enable(void)
 		mipi_panel_init_def();
 	}else {
 		panel_name = pi->name;
-		//FIXME: reinit MIPI controller??
 		memcpy(&mipi_dsi,pi->vm,sizeof(mipi_dsi));
 		memcpy(&mipilcd_config,pi->phy,sizeof(mipilcd_config));
-		//panel_power_on(0);
-		//panel_power_on(1);
-
-		apply_mipi_patch();
 
 		panel_info_init();
 		mipi_dsi_disable_controller();
@@ -1542,22 +1448,6 @@ void lcd_enable(void)
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	}
 
-	/*add by allenyao*/
-#if MIPI_DSI
-	#if defined CONFIG_MX6Q
-	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 26400000);
-	#elif defined CONFIG_MX6DL
-	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_PLL3, 0);
-	#endif
-#else
-	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
-			DI_PCLK_LDB, 65000000);
-#endif
-	if (ret)
-		puts("LCD cannot be configured\n");
-	/*add by allenyao*/
 #if MIPI_DSI
 	/* mipi source mux to IPU1 DI1 */
 	if (di == 1) {
@@ -1590,6 +1480,24 @@ void lcd_enable(void)
 		writel(0x201, IOMUXC_BASE_ADDR + 0x8);
 
 #endif
+
+	/*add by allenyao*/
+#if MIPI_DSI
+	#if defined CONFIG_MX6Q
+	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
+			DI_PCLK_PLL3, 26400000);
+	#elif defined CONFIG_MX6DL
+	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
+			DI_PCLK_PLL3, 0);
+	#endif
+#else
+	ret = ipuv3_fb_init(&lvds_wvga, di, IPU_PIX_FMT_RGB24,
+			DI_PCLK_LDB, 65000000);
+#endif
+	if (ret)
+		puts("LCD cannot be configured\n");
+	/*add by allenyao*/
+
 
 
 }
