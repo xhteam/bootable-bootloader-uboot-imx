@@ -1833,12 +1833,6 @@ int board_late_init(void)
 	if(mfg_check_and_clean_flag()){
 		run_command("download", 0);
 	}
-	#ifdef ENABLE_KEYPAD_SHORTCUT
-	if(mx6_board_rev()!=BOARD_REV_INVALID){
-		if(eKeyPadBootModeMfg==keypad_detect_bootmode())
-		run_command("download", 0);
-	}
-	#endif
 	return ret;
 }
 #endif
