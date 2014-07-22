@@ -1265,8 +1265,7 @@ void lcd_enable(void)
 	reg &= ~(0x3F03F);
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 
-
-#if defined CONFIG_MX6Q
+#if defined(CONFIG_MX6Q) && !defined(CONFIG_LPDDR2)
 	/*
 	 * Align IPU1 HSP clock and IPU1 DIx pixel clock
 	 * with kernel setting to avoid screen flick when
@@ -1314,6 +1313,7 @@ void lcd_enable(void)
 		udelay(5);
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CDHIPR);
 	} while (reg & (0x1 << 4));
+
 
 	/* ipu1_clk */
 	reg = readl(CCM_BASE_ADDR + CLKCTL_CSCDR3);
@@ -1371,7 +1371,7 @@ void lcd_enable(void)
 	reg |= 0x803;
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CHSCCDR);
 #endif
-#elif defined CONFIG_MX6DL /* CONFIG_MX6Q */
+#elif defined(CONFIG_MX6DL)||defined(CONFIG_LPDDR2) /* CONFIG_MX6Q */
 	/*
 	 * IPU1 HSP clock tree:
 	 * osc_clk(24M)->pll3_usb_otg_main_clk(480M)->
@@ -1437,6 +1437,7 @@ void lcd_enable(void)
 	writel(reg, CCM_BASE_ADDR + CLKCTL_CHSCCDR);
 #endif	/* CONFIG_MX6DL */
 
+
 	/* Enable ipu1/ipu1_dix/ldb_dix clocks. */
 	if (di == 1) {
 		reg = readl(CCM_BASE_ADDR + CLKCTL_CCGR3);
@@ -1447,6 +1448,7 @@ void lcd_enable(void)
 		reg |= 0x3300F;
 		writel(reg, CCM_BASE_ADDR + CLKCTL_CCGR3);
 	}
+
 
 #if MIPI_DSI
 	/* mipi source mux to IPU1 DI1 */
@@ -1483,10 +1485,10 @@ void lcd_enable(void)
 
 	/*add by allenyao*/
 #if MIPI_DSI
-	#if defined CONFIG_MX6Q
+	#if defined(CONFIG_MX6Q)
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_PLL3, 26400000);
-	#elif defined CONFIG_MX6DL
+	#elif defined(CONFIG_MX6DL)
 	ret = ipuv3_fb_init(&mipi_dsi, di, IPU_PIX_FMT_RGB24,
 			DI_PCLK_PLL3, 0);
 	#endif
@@ -1497,8 +1499,6 @@ void lcd_enable(void)
 	if (ret)
 		puts("LCD cannot be configured\n");
 	/*add by allenyao*/
-
-
 
 }
 #endif
@@ -1641,7 +1641,6 @@ void setup_splash_image(void)
 		setenv("splashimage",0);
 	else
 		setenv("splashimage","0x30000000");//copy from config file,to avoid splashimage env is cleared
-	
 	s = getenv("splashimage");
 
 	if (s != NULL) {
